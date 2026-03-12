@@ -1,0 +1,28 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# Data — never commit recordings, captures, or device extracts
+recordings/
+downloads/
+captures/
+apk/
+
+# Research scripts contain hardcoded device credentials
+research/
+
+# Session handovers
+HANDOVER.md
+
+.DS_Store
+.playwright-mcp/
+plaude.zip
+mermaid-filter.err
+plaude.toml
+*.docx
