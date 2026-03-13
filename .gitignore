@@ -1,7 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.pytest_cache/
+
+# Swift
 .build/
 .swiftpm/
 *.xcodeproj/
 xcuserdata/
 DerivedData/
+
+# OS
 .DS_Store
+
+# Generated artifacts
+*.docx
 *.corrupt
