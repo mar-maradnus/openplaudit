@@ -5,6 +5,7 @@
 import Foundation
 import BLEKit
 import AudioKit
+import TranscriptionKit
 
 /// Observable sync engine for the menubar app.
 @MainActor
@@ -20,6 +21,7 @@ public final class SyncEngine: ObservableObject {
     private var client: PlaudClient?
     private var autoSyncTimer: Timer?
     private var isSyncing = false
+    private lazy var transcriber = Transcriber(model: config.transcription.model)
 
     public init(config: AppConfig = AppConfig(), statePath: URL = defaultStatePath) {
         self.config = config
@@ -167,11 +169,17 @@ public final class SyncEngine: ObservableObject {
                     }
                 }
 
-                // Phase 3: Transcription placeholder (Phase 6)
-                // For now, mark as transcribed to complete the pipeline
-                // Will be replaced with whisper.cpp integration
+                // Phase 3: Transcription
                 if state.needsTranscription(sid) {
-                    // TODO: Wire TranscriptionKit here
+                    let result = try await transcriber.transcribe(
+                        wavPath: wavPath,
+                        language: config.transcription.language
+                    )
+                    let jsonPath = dirs.transcripts.appendingPathComponent("\(fname).json")
+                    let encoder = JSONEncoder()
+                    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                    try encoder.encode(result).write(to: jsonPath, options: .atomic)
+
                     state.markTranscribed(sid)
                     try state.saveAtomically()
                 }
