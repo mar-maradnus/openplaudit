@@ -3,9 +3,13 @@
 /// Ported from Python CLI `src/plaude/sync.py`.
 
 import Foundation
+import AVFoundation
 import BLEKit
 import AudioKit
 import TranscriptionKit
+import os
+
+private let log = Logger(subsystem: "com.openplaudit.app", category: "sync")
 
 /// Observable sync engine for the menubar app.
 @MainActor
@@ -20,12 +24,13 @@ public final class SyncEngine: ObservableObject {
 
     private var client: PlaudClient?
     private var autoSyncTimer: Timer?
-    private var isSyncing = false
+    private var syncTask: Task<Int, Error>?
     private lazy var transcriber = Transcriber(model: config.transcription.model)
 
     public init(config: AppConfig = AppConfig(), statePath: URL = defaultStatePath) {
         self.config = config
         self.state = SessionState(path: statePath)
+        rebuildRecentRecordings()
     }
 
     // MARK: - Auto-Sync
@@ -37,10 +42,33 @@ public final class SyncEngine: ObservableObject {
         autoSyncTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor in
-                guard !self.isSyncing else { return }
-                try? await self.runSync()
+                self.startSync()
             }
         }
+    }
+
+    /// Start a sync. If already syncing, does nothing.
+    public func startSync() {
+        guard syncTask == nil else { return }
+        syncTask = Task {
+            defer { syncTask = nil }
+            do {
+                return try await runSync()
+            } catch is CancellationError {
+                return 0
+            } catch {
+                status = .error(error.localizedDescription)
+                throw error
+            }
+        }
+    }
+
+    /// Cancel an in-progress sync.
+    public func cancelSync() {
+        syncTask?.cancel()
+        syncTask = nil
+        status = .idle
+        log.info("Sync cancelled by user")
     }
 
     public func stopAutoSync() {
@@ -75,6 +103,7 @@ public final class SyncEngine: ObservableObject {
     /// Full sync pipeline. Returns count of newly completed recordings.
     public func runSync() async throws -> Int {
         guard !config.device.address.isEmpty, !config.device.token.isEmpty else {
+            status = .error("Device not configured")
             throw SyncError.notConfigured
         }
 
@@ -84,49 +113,72 @@ public final class SyncEngine: ObservableObject {
         try fm.createDirectory(at: dirs.transcripts, withIntermediateDirectories: true)
         try fm.createDirectory(at: dirs.raw, withIntermediateDirectories: true)
 
-        guard !isSyncing else { return 0 }
-        isSyncing = true
         status = .connecting
+        log.info("Starting sync...")
         let client = PlaudClient(address: config.device.address, token: config.device.token)
         self.client = client
 
         defer {
             Task { await client.disconnect() }
             self.client = nil
-            self.isSyncing = false
-            status = .idle
+            self.isConnected = false
         }
 
-        try await client.connect()
+        do {
+            try await client.connect()
+        } catch {
+            status = .error("Connection failed: \(error.localizedDescription)")
+            throw error
+        }
         isConnected = true
 
-        guard try await client.handshake() else {
-            throw SyncError.handshakeFailed
+        try Task.checkCancellation()
+
+        do {
+            guard try await client.handshake() else {
+                status = .error("Handshake failed — check token or ensure device is not recording")
+                throw SyncError.handshakeFailed
+            }
+        } catch let error as SyncError {
+            throw error
+        } catch {
+            status = .error("Handshake failed: \(error.localizedDescription)")
+            throw error
         }
+
         try await client.timeSync()
+        try Task.checkCancellation()
 
         let sessions = try await client.getSessions()
-        if sessions.isEmpty { return 0 }
-
-        // Filter to sessions that are not fully complete
         let pending = sessions.filter { !state.isComplete($0.sessionID) }
-        if pending.isEmpty { return 0 }
+        guard !pending.isEmpty else {
+            log.info("No pending sessions")
+            status = .idle
+            return 0
+        }
 
+        log.info("\(pending.count) session(s) to sync")
         var completedCount = 0
+        var completedNames: [String] = []
 
         for (index, session) in pending.enumerated() {
+            try Task.checkCancellation()
+
             status = .syncing(current: index + 1, total: pending.count)
             let sid = session.sessionID
             let fname = sessionFilename(sid)
 
             do {
-                let rawPath = config.sync.keepRaw
-                    ? dirs.raw.appendingPathComponent("\(fname).opus")
-                    : nil
+                let rawFilePath = dirs.raw.appendingPathComponent("\(fname).opus")
                 let wavPath = dirs.audio.appendingPathComponent("\(fname).wav")
 
-                // Phase 1: Download
-                if state.needsDownload(sid) {
+                // Phase 1+2: Download and Decode
+                let hasRawFile = fm.fileExists(atPath: rawFilePath.path)
+                let needsFresh = state.needsDownload(sid) ||
+                    (state.needsDecode(sid) && !hasRawFile)
+
+                if needsFresh {
+                    log.info("Downloading session \(sid)")
                     let rawData = try await downloadFile(
                         client: client,
                         sessionID: sid,
@@ -142,39 +194,53 @@ public final class SyncEngine: ObservableObject {
                         }
                     )
 
-                    if let rawPath {
-                        try rawData.write(to: rawPath, options: .atomic)
+                    try Task.checkCancellation()
+
+                    if config.sync.keepRaw {
+                        try rawData.write(to: rawFilePath, options: .atomic)
                     }
 
+                    log.info("Decoding session \(sid)")
+                    let pcm = try await Task.detached {
+                        try decodeOpusRaw(rawData)
+                    }.value
+                    try await Task.detached {
+                        try saveWAV(pcm, to: wavPath)
+                    }.value
+
                     state.markDownloaded(sid)
-                    try state.saveAtomically()
-
-                    // Phase 2: Decode
-                    let pcm = try decodeOpusRaw(rawData)
-                    try saveWAV(pcm, to: wavPath)
-
                     state.markDecoded(sid)
                     try state.saveAtomically()
 
-                    let duration = Double(pcm.count) / (16000.0 * 2.0)
+                    let duration = Self.wavDuration(wavPath)
+                        ?? Double(pcm.count) / (16000.0 * 2.0)
                     addRecentRecording(sid: sid, duration: duration, filename: fname)
+
                 } else if state.needsDecode(sid) {
-                    // Already downloaded, needs decode — try to find raw data
-                    if let rawPath, fm.fileExists(atPath: rawPath.path) {
-                        let rawData = try Data(contentsOf: rawPath)
-                        let pcm = try decodeOpusRaw(rawData)
+                    let url = rawFilePath
+                    let pcm = try await Task.detached {
+                        let rawData = try Data(contentsOf: url)
+                        return try decodeOpusRaw(rawData)
+                    }.value
+                    try await Task.detached {
                         try saveWAV(pcm, to: wavPath)
-                        state.markDecoded(sid)
-                        try state.saveAtomically()
-                    }
+                    }.value
+
+                    state.markDecoded(sid)
+                    try state.saveAtomically()
                 }
 
-                // Phase 3: Transcription
+                try Task.checkCancellation()
+
+                // Phase 3: Transcription (off main actor)
                 if state.needsTranscription(sid) {
-                    let result = try await transcriber.transcribe(
-                        wavPath: wavPath,
-                        language: config.transcription.language
-                    )
+                    log.info("Transcribing session \(sid)")
+                    let t = self.transcriber
+                    let lang = config.transcription.language
+                    let result = try await Task.detached {
+                        try await t.transcribe(wavPath: wavPath, language: lang)
+                    }.value
+
                     let jsonPath = dirs.transcripts.appendingPathComponent("\(fname).json")
                     let encoder = JSONEncoder()
                     encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -182,19 +248,20 @@ public final class SyncEngine: ObservableObject {
 
                     state.markTranscribed(sid)
                     try state.saveAtomically()
-                }
 
-                if config.notifications.enabled {
-                    sendNotification(
-                        title: "OpenPlaudit",
-                        body: "Recording synced: \(fname)",
-                        subtitle: formatLocalTime(sid)
-                    )
+                    if config.sync.autoDeleteLocalAudio {
+                        try? fm.removeItem(at: wavPath)
+                    }
                 }
 
                 completedCount += 1
+                completedNames.append(fname)
+                log.info("Session \(sid) complete")
 
+            } catch is CancellationError {
+                throw CancellationError()
             } catch {
+                log.error("Session \(sid) failed: \(error.localizedDescription, privacy: .public)")
                 state.markFailed(sid, reason: "\(type(of: error)): \(error.localizedDescription)")
                 try? state.saveAtomically()
             }
@@ -202,14 +269,33 @@ public final class SyncEngine: ObservableObject {
             progress = nil
         }
 
+        // Batch notification: one summary instead of per-session
+        if config.notifications.enabled && completedCount > 0 {
+            let body: String
+            if completedCount == 1 {
+                body = "Recording synced: \(completedNames.first ?? "")"
+            } else {
+                body = "\(completedCount) recordings synced"
+            }
+            sendNotification(title: "OpenPlaudit", body: body)
+        }
+
+        log.info("Sync complete: \(completedCount) recording(s)")
+        status = .idle
         return completedCount
+    }
+
+    /// Get exact WAV duration via AVAudioFile; returns nil on failure.
+    static func wavDuration(_ url: URL) -> Double? {
+        guard let file = try? AVAudioFile(forReading: url) else { return nil }
+        return Double(file.length) / file.processingFormat.sampleRate
     }
 
     // MARK: - Config Persistence
 
-    /// Save the current config to TOML (for CLI compatibility).
+    /// Save config to TOML (without token) and token to Keychain.
     public func persistConfig() {
-        try? saveConfig(config)
+        try? saveConfigWithKeychain(config)
     }
 
     // MARK: - Helpers
@@ -223,6 +309,31 @@ public final class SyncEngine: ObservableObject {
         )
         recentRecordings.insert(recording, at: 0)
         if recentRecordings.count > 10 { recentRecordings.removeLast() }
+    }
+
+    /// Rebuild recent recordings from state.json and audio directory on launch.
+    private func rebuildRecentRecordings() {
+        let dirs = getOutputDirs(config)
+        var recordings: [RecentRecording] = []
+
+        for (key, entry) in state.allEntries {
+            guard entry["decoded_at"] != nil || entry["transcribed_at"] != nil,
+                  let sid = UInt32(key) else { continue }
+
+            let fname = sessionFilename(sid)
+            let wavPath = dirs.audio.appendingPathComponent("\(fname).wav")
+
+            let duration = Self.wavDuration(wavPath)
+
+            recordings.append(RecentRecording(
+                id: sid,
+                date: Date(timeIntervalSince1970: TimeInterval(sid)),
+                durationSeconds: duration,
+                filename: fname
+            ))
+        }
+
+        recentRecordings = Array(recordings.sorted { $0.date > $1.date }.prefix(10))
     }
 }
 

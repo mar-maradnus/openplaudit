@@ -4,9 +4,24 @@
 
 import CoreBluetooth
 import Foundation
+import os
 
-/// Errors from BLE communication.
+private let log = Logger(subsystem: "com.openplaudit.app", category: "ble")
+
+/// Errors from BLE communication, classified by failure type.
 public enum BLEError: Error, LocalizedError {
+    // Connection phase
+    case bluetoothOff
+    case bluetoothUnauthorized
+    case deviceNotFound
+    case connectionFailed(Error?)
+    case disconnected
+
+    // Service discovery
+    case serviceNotFound
+    case characteristicsNotFound
+
+    // Protocol
     case notConnected
     case handshakeFailed
     case timeout(String)
@@ -15,6 +30,15 @@ public enum BLEError: Error, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
+        case .bluetoothOff: return "Bluetooth is turned off"
+        case .bluetoothUnauthorized: return "Bluetooth permission not granted — check System Settings > Privacy"
+        case .deviceNotFound: return "PLAUD device not found — ensure it is nearby and powered on"
+        case .connectionFailed(let err):
+            if let err { return "Connection failed: \(err.localizedDescription)" }
+            return "Connection to device failed"
+        case .disconnected: return "Device disconnected unexpectedly"
+        case .serviceNotFound: return "PLAUD BLE service not found — device may need a firmware update"
+        case .characteristicsNotFound: return "BLE characteristics missing — protocol mismatch with device"
         case .notConnected: return "Not connected to device"
         case .handshakeFailed: return "Handshake failed — check token or ensure device is not recording"
         case .timeout(let msg): return "Timeout: \(msg)"
@@ -31,7 +55,6 @@ public enum BLEError: Error, LocalizedError {
 public actor PlaudClient {
     private let address: String
     private let token: String
-    private let verbose: Bool
 
     private let delegate: ClientDelegate
     private var centralManager: CBCentralManager?
@@ -48,10 +71,9 @@ public actor PlaudClient {
     public var isReceiving = false
     public private(set) var isConnected = false
 
-    public init(address: String, token: String, verbose: Bool = false) {
+    public init(address: String, token: String) {
         self.address = address
         self.token = token
-        self.verbose = verbose
         self.delegate = ClientDelegate()
     }
 
@@ -112,10 +134,8 @@ public actor PlaudClient {
             throw BLEError.notConnected
         }
         let pkt = buildCmd(cmdID, payload: payload)
-        if verbose {
-            let name = cmdNames[cmdID] ?? "CMD_\(cmdID)"
-            print("  -> [\(name)] \(pkt.prefix(40).hexString)")
-        }
+        let name = cmdNames[cmdID] ?? "CMD_\(cmdID)"
+        log.debug("-> [\(name, privacy: .public)] \(pkt.prefix(40).hexString, privacy: .public)")
         p.writeValue(pkt, for: rx, type: .withResponse)
     }
 
@@ -146,10 +166,8 @@ public actor PlaudClient {
     // MARK: - Delegate Callbacks (called from delegate bridge)
 
     func handleCommandResponse(cmdID: UInt16, payload: Data) {
-        if verbose {
-            let name = cmdNames[cmdID] ?? "CMD_\(cmdID)"
-            print("  <- [\(name)] \(payload.prefix(40).hexString)")
-        }
+        let name = cmdNames[cmdID] ?? "CMD_\(cmdID)"
+        log.debug("<- [\(name, privacy: .public)] \(payload.prefix(40).hexString, privacy: .public)")
         if let continuation = pendingResponses.removeValue(forKey: cmdID) {
             continuation.resume(returning: payload)
         }
@@ -190,11 +208,21 @@ private final class ClientDelegate: NSObject, CBCentralManagerDelegate, CBPeriph
     // MARK: - Central Manager
 
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
-        guard central.state == .poweredOn else { return }
-        central.scanForPeripherals(
-            withServices: [plaudServiceCBUUID],
-            options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
-        )
+        switch central.state {
+        case .poweredOn:
+            central.scanForPeripherals(
+                withServices: [plaudServiceCBUUID],
+                options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
+            )
+        case .poweredOff:
+            connectContinuation?.resume(throwing: BLEError.bluetoothOff)
+            connectContinuation = nil
+        case .unauthorized:
+            connectContinuation?.resume(throwing: BLEError.bluetoothUnauthorized)
+            connectContinuation = nil
+        default:
+            break
+        }
     }
 
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
@@ -214,7 +242,7 @@ private final class ClientDelegate: NSObject, CBCentralManagerDelegate, CBPeriph
     }
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
-        connectContinuation?.resume(throwing: error ?? BLEError.notConnected)
+        connectContinuation?.resume(throwing: BLEError.connectionFailed(error))
         connectContinuation = nil
     }
 
@@ -222,7 +250,7 @@ private final class ClientDelegate: NSObject, CBCentralManagerDelegate, CBPeriph
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         guard let service = peripheral.services?.first(where: { $0.uuid == plaudServiceCBUUID }) else {
-            connectContinuation?.resume(throwing: BLEError.notConnected)
+            connectContinuation?.resume(throwing: BLEError.serviceNotFound)
             connectContinuation = nil
             return
         }
@@ -231,7 +259,7 @@ private final class ClientDelegate: NSObject, CBCentralManagerDelegate, CBPeriph
 
     func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
         guard let chars = service.characteristics else {
-            connectContinuation?.resume(throwing: BLEError.notConnected)
+            connectContinuation?.resume(throwing: BLEError.characteristicsNotFound)
             connectContinuation = nil
             return
         }

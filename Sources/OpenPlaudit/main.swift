@@ -2,11 +2,16 @@
 ///
 /// Pure AppKit entry point with NSStatusItem and NSMenu.
 /// Uses main.swift (not @main) so we can control the run loop directly.
+/// Must be launched as a .app bundle (via scripts/run-app.sh) for the
+/// status item to render — LSUIElement=true in Info.plist hides the Dock icon.
 
 import AppKit
 import Combine
 import SwiftUI
 import SyncEngine
+import os
+
+private let log = Logger(subsystem: "com.openplaudit.app", category: "app")
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
@@ -17,10 +22,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     // Menu item tags
     private let statusTag = 100
     private let syncButtonTag = 101
+    private let cancelButtonTag = 102
     private let recentHeaderTag = 200
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        engine = SyncEngine(config: loadConfig())
+        engine = SyncEngine(config: loadConfigWithKeychain())
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.title = "♪"
@@ -36,9 +42,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.updateRecordings(recordings)
         }.store(in: &cancellables)
 
-        // Hide Dock icon after a short delay so the status item is established
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            NSApp.setActivationPolicy(.accessory)
+        // Start auto-sync if configured
+        if engine.config.sync.autoSyncEnabled {
+            engine.startAutoSync(intervalMinutes: engine.config.sync.autoSyncIntervalMinutes)
         }
     }
 
@@ -48,6 +54,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let syncItem = NSMenuItem(title: "Sync Now", action: #selector(syncNow), keyEquivalent: "")
         syncItem.tag = syncButtonTag
         menu.addItem(syncItem)
+
+        let cancelItem = NSMenuItem(title: "Cancel Sync", action: #selector(cancelSync), keyEquivalent: "")
+        cancelItem.tag = cancelButtonTag
+        cancelItem.isHidden = true
+        menu.addItem(cancelItem)
+
         menu.addItem(NSMenuItem.separator())
 
         let statusLine = NSMenuItem(title: "Idle", action: nil, keyEquivalent: "")
@@ -57,7 +69,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
-        // Placeholder for recent recordings (populated dynamically)
         let header = NSMenuItem(title: "No recent recordings", action: nil, keyEquivalent: "")
         header.isEnabled = false
         header.tag = recentHeaderTag
@@ -75,6 +86,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let menu = statusItem.menu else { return }
         let statusLine = menu.item(withTag: statusTag)
         let syncButton = menu.item(withTag: syncButtonTag)
+        let cancelButton = menu.item(withTag: cancelButtonTag)
 
         switch status {
         case .idle:
@@ -82,18 +94,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             statusItem.button?.title = connected ? "♪●" : "♪"
             statusLine?.title = connected ? "Connected" : "Idle"
             syncButton?.isEnabled = true
+            cancelButton?.isHidden = true
         case .connecting:
             statusItem.button?.title = "♪…"
             statusLine?.title = "Connecting..."
             syncButton?.isEnabled = false
+            cancelButton?.isHidden = false
         case .syncing(let current, let total):
             statusItem.button?.title = "♪↻"
             statusLine?.title = "Syncing \(current)/\(total)..."
             syncButton?.isEnabled = false
+            cancelButton?.isHidden = false
         case .error(let msg):
             statusItem.button?.title = "♪⚠"
             statusLine?.title = "Error: \(msg)"
             syncButton?.isEnabled = true
+            cancelButton?.isHidden = true
         }
     }
 
@@ -102,7 +118,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let headerIndex = menu.indexOfItem(withTag: recentHeaderTag)
         guard headerIndex >= 0 else { return }
 
-        // Remove old recording items (tag >= recentHeaderTag)
+        // Remove old recording items
         while let item = menu.item(withTag: recentHeaderTag) {
             menu.removeItem(item)
         }
@@ -130,7 +146,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func syncNow() {
         Task { @MainActor in
-            try? await engine.runSync()
+            engine.startSync()
+        }
+    }
+
+    @objc func cancelSync() {
+        Task { @MainActor in
+            engine.cancelSync()
         }
     }
 
@@ -144,6 +166,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             contentRect: NSRect(x: 0, y: 0, width: 480, height: 400),
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered, defer: false)
+        w.isReleasedWhenClosed = false
         w.title = "OpenPlaudit Settings"
         w.center()
         w.contentView = NSHostingView(rootView: SettingsView(engine: engine))

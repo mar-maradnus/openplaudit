@@ -5,6 +5,7 @@ import Foundation
 import Testing
 @testable import SyncEngine
 
+@MainActor
 private func makeState() -> SessionState {
     let path = FileManager.default.temporaryDirectory
         .appendingPathComponent(UUID().uuidString)
@@ -13,6 +14,7 @@ private func makeState() -> SessionState {
 }
 
 @Suite("State roundtrip")
+@MainActor
 struct StateRoundtripTests {
     @Test func emptyWhenNoFile() {
         let path = FileManager.default.temporaryDirectory
@@ -51,6 +53,7 @@ struct StateRoundtripTests {
 }
 
 @Suite("Corrupt state recovery")
+@MainActor
 struct CorruptStateTests {
     @Test func corruptReturnsEmpty() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -82,12 +85,17 @@ struct CorruptStateTests {
 
         try "{invalid json".write(to: path, atomically: true, encoding: .utf8)
         _ = SessionState(path: path)
-        let corruptPath = path.deletingPathExtension().appendingPathExtension("corrupt")
-        #expect(FileManager.default.fileExists(atPath: corruptPath.path))
+        // Original file should be gone (quarantined to timestamped backup)
+        #expect(!FileManager.default.fileExists(atPath: path.path))
+        // A .corrupt. backup should exist in the same directory
+        let contents = try FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)
+        let backups = contents.filter { $0.lastPathComponent.contains(".corrupt.") }
+        #expect(!backups.isEmpty)
     }
 }
 
 @Suite("Phase marking")
+@MainActor
 struct PhaseMarkingTests {
     @Test func markDownloaded() {
         let state = makeState()
@@ -129,6 +137,7 @@ struct PhaseMarkingTests {
 }
 
 @Suite("Phase queries")
+@MainActor
 struct PhaseQueryTests {
     @Test func needsDownloadUnknown() {
         #expect(makeState().needsDownload(9999))
@@ -180,6 +189,7 @@ struct PhaseQueryTests {
 }
 
 @Suite("Full lifecycle")
+@MainActor
 struct FullLifecycleTests {
     @Test func persistAndReload() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -205,5 +215,34 @@ struct FullLifecycleTests {
         state.markFailed(1000, reason: "decode error")
         #expect(state.needsDecode(1000))
         #expect(!state.isComplete(1000))
+    }
+
+    @Test func backupAndRestore() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let path = dir.appendingPathComponent("state.json")
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        // Create state with data, save twice so rolling backup contains first save
+        let state = SessionState(path: path)
+        state.markDownloaded(1000)
+        state.markDecoded(1000)
+        state.markTranscribed(1000)
+        try state.saveAtomically()
+
+        // Second save creates a rolling backup of the first
+        state.markDownloaded(2000)
+        try state.saveAtomically()
+        #expect(state.hasBackup)
+
+        // Corrupt the main file
+        try "{broken}".write(to: path, atomically: true, encoding: .utf8)
+
+        // Load fresh — corruption detected, starts empty
+        let fresh = SessionState(path: path)
+        #expect(fresh.allEntries.isEmpty)
+
+        // Restore from rolling backup (contains state after first save)
+        try fresh.restoreFromBackup()
+        #expect(fresh.isComplete(1000))
     }
 }

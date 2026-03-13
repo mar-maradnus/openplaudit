@@ -10,7 +10,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/LebJe/TOMLKit.git", from: "0.6.0"),
-        .package(url: "https://github.com/exPHAT/SwiftWhisper.git", branch: "master"),
+        .package(url: "https://github.com/exPHAT/SwiftWhisper.git", revision: "c340197966ebd264f3135d3955874b40f8ed58bc"),
         .package(url: "https://github.com/swiftlang/swift-testing.git", from: "0.12.0"),
     ],
     targets: [
@@ -50,7 +50,7 @@ let package = Package(
             name: "OpenPlaudit",
             dependencies: ["BLEKit", "AudioKit", "SyncEngine", "TranscriptionKit"],
             path: "Sources/OpenPlaudit",
-            exclude: ["Resources/Info.plist"],
+            exclude: ["Resources/Info.plist", "Resources/OpenPlaudit.entitlements"],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
 

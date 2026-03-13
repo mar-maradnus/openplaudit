@@ -3,6 +3,9 @@
 /// Ported from Python CLI `src/plaude/ble/transfer.py`.
 
 import Foundation
+import os
+
+private let log = Logger(subsystem: "com.openplaudit.app", category: "transfer")
 
 /// Raised when a file download fails.
 public struct DownloadError: Error, LocalizedError {
@@ -24,7 +27,6 @@ public func downloadFile(
     client: PlaudClient,
     sessionID: UInt32,
     fileSize: UInt32,
-    verbose: Bool = false,
     progress: ((Int, Int, Double) -> Void)? = nil
 ) async throws -> Data {
     await client.resetVoiceBuffer()
@@ -95,13 +97,11 @@ public func downloadFile(
             let localCRC = crc16CCITT(fileData)
             let crcSkipped = deviceCRC == 0xFFFF
 
-            if verbose {
-                if crcSkipped {
-                    print("  CRC: skipped by device (0xFFFF)")
-                } else {
-                    let match = deviceCRC == localCRC ? "OK" : "MISMATCH"
-                    print("  CRC: 0x\(String(format: "%04x", deviceCRC))/0x\(String(format: "%04x", localCRC)) \(match)")
-                }
+            if crcSkipped {
+                log.debug("CRC: skipped by device (0xFFFF)")
+            } else {
+                let match = deviceCRC == localCRC ? "OK" : "MISMATCH"
+                log.info("CRC: 0x\(String(format: "%04x", deviceCRC), privacy: .public)/0x\(String(format: "%04x", localCRC), privacy: .public) \(match, privacy: .public)")
             }
 
             // Send checksum acknowledgement
@@ -130,12 +130,8 @@ public func downloadFile(
             let pct = min(Double(current) / Double(expectedSize) * 100.0, 100.0)
             progress?(current, expectedSize, pct)
 
-            if verbose {
-                let speed = elapsed > 0 ? Double(current) / elapsed : 0
-                let pkts = await client.voicePacketCount
-                print("\r  \(current)/\(expectedSize) (\(String(format: "%.1f", pct))%) \(String(format: "%.1f", speed / 1024)) KB/s [\(pkts) pkts]", terminator: "")
-                fflush(stdout)
-            }
+            let speed = elapsed > 0 ? Double(current) / elapsed : 0
+            log.debug("\(current)/\(expectedSize) (\(String(format: "%.1f", pct))%) \(String(format: "%.1f", speed / 1024)) KB/s")
         } else {
             stallCount += 1
             if stallCount > 20 {  // 10s with no data
