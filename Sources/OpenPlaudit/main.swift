@@ -107,6 +107,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             statusLine?.title = "Syncing \(current)/\(total)..."
             syncButton?.isEnabled = false
             cancelButton?.isHidden = false
+        case .cancelling:
+            statusItem.button?.title = "♪…"
+            statusLine?.title = "Cancelling..."
+            syncButton?.isEnabled = false
+            cancelButton?.isHidden = true
         case .error(let msg):
             statusItem.button?.title = "♪⚠"
             statusLine?.title = "Error: \(msg)"
@@ -184,7 +189,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         let w = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 400),
+            contentRect: NSRect(x: 0, y: 0, width: 560, height: 400),
             styleMask: [.titled, .closable, .resizable],
             backing: .buffered, defer: false)
         w.isReleasedWhenClosed = false

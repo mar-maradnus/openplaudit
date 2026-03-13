@@ -1,4 +1,4 @@
-/// Settings window — device, output, transcription, sync tabs.
+/// Settings window — sidebar navigation with device, output, transcription, sync sections.
 
 import SwiftUI
 import SyncEngine
@@ -18,94 +18,155 @@ struct SettingsView: View {
     @State private var autoSyncEnabled: Bool = false
     @State private var autoSyncIntervalMinutes: Int = 30
     @State private var restoreMessage: String?
+    @State private var saveError: String?
+    @State private var selectedSection: SettingsSection = .device
+
+    enum SettingsSection: String, CaseIterable, Identifiable {
+        case device = "Device"
+        case output = "Output"
+        case transcription = "Transcription"
+        case sync = "Sync"
+
+        var id: String { rawValue }
+
+        var icon: String {
+            switch self {
+            case .device: return "antenna.radiowaves.left.and.right"
+            case .output: return "folder"
+            case .transcription: return "text.bubble"
+            case .sync: return "arrow.triangle.2.circlepath"
+            }
+        }
+    }
 
     var body: some View {
-        TabView {
-            deviceTab
-                .tabItem { Label("Device", systemImage: "antenna.radiowaves.left.and.right") }
-
-            outputTab
-                .tabItem { Label("Output", systemImage: "folder") }
-
-            transcriptionTab
-                .tabItem { Label("Transcription", systemImage: "text.bubble") }
-
-            syncTab
-                .tabItem { Label("Sync", systemImage: "arrow.triangle.2.circlepath") }
+        NavigationSplitView {
+            List(SettingsSection.allCases, selection: $selectedSection) { section in
+                Label(section.rawValue, systemImage: section.icon)
+                    .tag(section)
+            }
+            .listStyle(.sidebar)
+            .navigationSplitViewColumnWidth(min: 140, ideal: 160, max: 180)
+        } detail: {
+            detailView
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .frame(width: 450, height: 300)
+        .frame(width: 560, height: 360)
         .onAppear { loadFromConfig() }
     }
 
-    // MARK: - Tabs
+    // MARK: - Detail Views
 
-    private var deviceTab: some View {
-        Form {
-            TextField("Device Address (UUID):", text: $address)
-            SecureField("Binding Token:", text: $token)
-            Button("Save") { saveConfig() }
+    @ViewBuilder
+    private var detailView: some View {
+        switch selectedSection {
+        case .device: deviceSection
+        case .output: outputSection
+        case .transcription: transcriptionSection
+        case .sync: syncSection
         }
-        .padding()
     }
 
-    private var outputTab: some View {
+    private var deviceSection: some View {
         Form {
-            TextField("Output Directory:", text: $baseDir)
-            Text("Audio: <base>/audio, Transcripts: <base>/transcripts")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Button("Save") { saveConfig() }
-        }
-        .padding()
-    }
-
-    private var transcriptionTab: some View {
-        Form {
-            Picker("Model:", selection: $model) {
-                Text("Tiny").tag("tiny")
-                Text("Base").tag("base")
-                Text("Small").tag("small")
-                Text("Medium").tag("medium")
-                Text("Large").tag("large")
+            Section {
+                TextField("Device Address (UUID):", text: $address)
+                SecureField("Binding Token:", text: $token)
             }
-            TextField("Language:", text: $language)
-            Button("Save") { saveConfig() }
+            saveRow
         }
-        .padding()
+        .formStyle(.grouped)
+        .padding(.top, 8)
     }
 
-    private var syncTab: some View {
+    private var outputSection: some View {
         Form {
-            Toggle("Keep raw Opus files", isOn: $keepRaw)
-            Toggle("Auto-delete local audio after transcription", isOn: $autoDelete)
-            Toggle("Notifications enabled", isOn: $notificationsEnabled)
-            Toggle("Show transcript preview in notifications", isOn: $showPreview)
+            Section {
+                TextField("Output Directory:", text: $baseDir)
+            } footer: {
+                Text("Audio saved to <dir>/audio, transcripts to <dir>/transcripts")
+            }
+            saveRow
+        }
+        .formStyle(.grouped)
+        .padding(.top, 8)
+    }
 
-            Divider()
+    private var transcriptionSection: some View {
+        Form {
+            Section {
+                Picker("Model:", selection: $model) {
+                    Text("Tiny").tag("tiny")
+                    Text("Base").tag("base")
+                    Text("Small").tag("small")
+                    Text("Medium").tag("medium")
+                    Text("Large").tag("large")
+                }
+                TextField("Language:", text: $language)
+            } footer: {
+                Text("Models are downloaded on first use. Medium requires ~1.5 GB.")
+            }
+            saveRow
+        }
+        .formStyle(.grouped)
+        .padding(.top, 8)
+    }
 
-            Toggle("Auto-sync enabled", isOn: $autoSyncEnabled)
-            Stepper("Sync interval: \(autoSyncIntervalMinutes) min",
-                    value: $autoSyncIntervalMinutes, in: 1...120)
-                .disabled(!autoSyncEnabled)
+    private var syncSection: some View {
+        Form {
+            Section("Scheduling") {
+                Toggle("Auto-sync enabled", isOn: $autoSyncEnabled)
+                Stepper("Interval: \(autoSyncIntervalMinutes) min",
+                        value: $autoSyncIntervalMinutes, in: 1...120)
+                    .disabled(!autoSyncEnabled)
+            }
 
-            Button("Save") { saveConfig() }
+            Section("Files") {
+                Toggle("Keep raw Opus files", isOn: $keepRaw)
+                Toggle("Auto-delete audio after transcription", isOn: $autoDelete)
+            }
 
-            Divider()
+            Section("Notifications") {
+                Toggle("Notifications enabled", isOn: $notificationsEnabled)
+                Toggle("Show transcript preview", isOn: $showPreview)
+                    .disabled(!notificationsEnabled)
+            }
 
+            saveRow
+
+            Section("Recovery") {
+                HStack {
+                    Button("Restore State from Backup") { restoreState() }
+                        .disabled(!engine.state.hasBackup)
+                    if let msg = restoreMessage {
+                        Text(msg)
+                            .font(.caption)
+                            .foregroundStyle(msg.contains("Restored") ? .green : .red)
+                    }
+                }
+                Text("Recovers session tracking from the last known good state.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+        .padding(.top, 8)
+    }
+
+    // MARK: - Shared Save Row
+
+    private var saveRow: some View {
+        Section {
             HStack {
-                Button("Restore State from Backup") { restoreState() }
-                    .disabled(!engine.state.hasBackup)
-                if let msg = restoreMessage {
-                    Text(msg)
+                Button("Save") { saveConfig() }
+                    .keyboardShortcut(.return, modifiers: .command)
+                if let err = saveError {
+                    Text(err)
                         .font(.caption)
-                        .foregroundStyle(msg.contains("Restored") ? .green : .red)
+                        .foregroundStyle(.red)
                 }
             }
-            Text("Recovers session tracking from the last known good state if the state file becomes corrupted.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
-        .padding()
     }
 
     // MARK: - Config Bridge
@@ -113,7 +174,6 @@ struct SettingsView: View {
     private func loadFromConfig() {
         let cfg = engine.config
         address = cfg.device.address
-        // Token comes from Keychain (already loaded into engine.config)
         token = cfg.device.token
         baseDir = cfg.output.baseDir
         model = cfg.transcription.model
@@ -139,10 +199,8 @@ struct SettingsView: View {
         engine.config.sync.autoSyncEnabled = autoSyncEnabled
         engine.config.sync.autoSyncIntervalMinutes = autoSyncIntervalMinutes
 
-        // Persist to TOML (without token) + Keychain (token)
-        engine.persistConfig()
+        saveError = engine.persistConfig()
 
-        // Apply auto-sync change immediately
         if autoSyncEnabled {
             engine.startAutoSync(intervalMinutes: autoSyncIntervalMinutes)
         } else {
