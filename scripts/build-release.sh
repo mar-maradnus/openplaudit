@@ -32,7 +32,7 @@ chmod +x "$MACOS/OpenPlaudit"
 cp Sources/OpenPlaudit/Resources/Info.plist "$CONTENTS/Info.plist"
 
 echo "Codesigning with entitlements..."
-codesign --force --options runtime --sign "$IDENTITY" --entitlements "$ENTITLEMENTS" "$MACOS/OpenPlaudit"
+codesign --force --options runtime --sign "$IDENTITY" --entitlements "$ENTITLEMENTS" "$APP_DIR"
 
 echo "Creating zip..."
 ZIP_PATH="$PROJECT_DIR/OpenPlaudit.app.zip"
