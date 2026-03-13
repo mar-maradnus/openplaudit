@@ -1,15 +1,60 @@
 # OpenPlaudit
 
-Local-first CLI for PLAUD Note AI voice recorder. Syncs recordings over BLE, decodes Opus audio, and transcribes with OpenAI Whisper — entirely offline, no cloud required.
+Local-first tools for the PLAUD Note AI voice recorder. Sync recordings over BLE, decode Opus audio, and transcribe with Whisper — entirely offline, no cloud required.
 
-## Requirements
+OpenPlaudit includes a **Python CLI** (`plaude`) and a **native macOS menubar app**, both sharing the same configuration, state, and output files.
 
-- Python 3.11+
-- macOS (CoreBluetooth via Bleak)
-- Opus codec library (`brew install opus`)
-- A paired PLAUD Note device (binding token extracted from mobile app backup)
+## Important
 
-## Install
+**This project exists for one reason: privacy.** The official PLAUD app uploads recordings to cloud servers for processing. If that is acceptable to you, use the official app — it is better supported and will not break.
+
+OpenPlaudit operates entirely on your local machine. Recordings never leave your device. Transcription runs locally via whisper.cpp (macOS app) or OpenAI Whisper (CLI).
+
+**This tool is built on a reverse-engineered BLE protocol. Any firmware update to the PLAUD Note can break compatibility without warning.** There is no affiliation with PLAUD Inc., and no guarantee of continued operation.
+
+## macOS Menubar App
+
+A native Swift menubar app that syncs recordings silently in the background.
+
+### Install
+
+1. Download `OpenPlaudit.app.zip` from the [latest release](https://github.com/mar-maradnus/openplaudit/releases)
+2. Unzip and move `OpenPlaudit.app` to `/Applications`
+3. Right-click the app, then click Open (required once for unsigned apps)
+4. Configure your device address and token in Settings
+
+Or build from source:
+
+```bash
+brew install opus
+git clone https://github.com/mar-maradnus/openplaudit.git
+cd openplaudit
+swift build
+scripts/run-app.sh
+```
+
+### Features
+
+- Background sync on a configurable interval (1-120 minutes)
+- Local transcription via whisper.cpp with Metal acceleration on Apple Silicon
+- Secure token storage in macOS Keychain
+- Cancel in-progress syncs
+- macOS notifications with optional transcript preview
+- Structured logging visible in Console.app
+- State recovery from corruption with rolling backups
+- Classified BLE error messages for troubleshooting
+
+### Requirements
+
+- macOS 14+ (Sonoma)
+- Homebrew: `brew install opus`
+- A PLAUD Note device with known BLE address and binding token
+
+## Python CLI
+
+A command-line tool for the same workflow, useful for scripting and automation.
+
+### Install
 
 ```bash
 cd openplaudit
@@ -17,27 +62,20 @@ python -m venv venv && source venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-## Quick Start
+Requires Python 3.11+, macOS, `brew install opus`.
+
+### Quick Start
 
 ```bash
-# Create config with defaults
 plaude config init
-
-# Set your device address and token
 plaude config set device.address "YOUR-DEVICE-UUID"
 plaude config set device.token "your_token_here"
-
-# Scan for PLAUD devices (to find address)
-plaude scan
-
-# List recordings on device
-plaude list
-
-# Sync everything: download, decode, transcribe
-plaude sync
+plaude scan       # Find your device address
+plaude list       # List recordings on device
+plaude sync       # Download, decode, transcribe
 ```
 
-## Commands
+### Commands
 
 | Command | Description |
 |---------|-------------|
@@ -51,14 +89,16 @@ plaude sync
 
 Use `-v` for verbose BLE output, `-q` for minimal output.
 
-## Configuration
+## Shared Configuration
 
-Config file: `~/.config/openplaudit/config.toml`
+Both tools read the same config and state files. Run either tool; neither will re-download what the other already processed.
+
+**Config**: `~/.config/openplaudit/config.toml`
 
 ```toml
 [device]
 address = ""       # BLE UUID from `plaude scan`
-token = ""         # 32-char hex binding token
+token = ""         # 32-char hex binding token (app stores in Keychain instead)
 
 [output]
 base_dir = "~/Documents/OpenPlaudit"
@@ -69,18 +109,22 @@ language = "en"
 
 [sync]
 auto_delete_local_audio = false
-keep_raw = false   # Keep raw .opus files from BLE transfer
+keep_raw = false
+auto_sync_enabled = false
+auto_sync_interval_minutes = 30
 
 [notifications]
 enabled = true
 show_preview = true
 ```
 
-Output structure:
+**State**: `~/.local/share/openplaudit/state.json`
+
+**Output**:
 ```
 ~/Documents/OpenPlaudit/
-  audio/        — decoded WAV files
-  transcripts/  — JSON transcripts (timestamped segments)
+  audio/        — decoded WAV files (16kHz mono)
+  transcripts/  — JSON transcripts with timestamped segments
   raw/          — raw Opus downloads (if keep_raw = true)
 ```
 
@@ -89,10 +133,10 @@ Output structure:
 Each recording progresses through three phases:
 
 1. **Download** — BLE transfer of raw Opus packets from device
-2. **Decode** — Extract Opus frames from BLE packets, decode to WAV
-3. **Transcribe** — Run Whisper, save JSON with timestamped segments
+2. **Decode** — Extract Opus frames, decode to 16kHz mono WAV
+3. **Transcribe** — Run Whisper locally, save JSON with timestamped segments
 
-State is tracked in `~/.local/share/openplaudit/state.json`. If sync is interrupted, the next run resumes from the last successful phase per recording. Failed sessions are retried automatically.
+State is tracked per session. If sync is interrupted, the next run resumes from the last successful phase. Failed sessions are retried automatically.
 
 ## Transcript Format
 
@@ -109,36 +153,67 @@ State is tracked in `~/.local/share/openplaudit/state.json`. If sync is interrup
 }
 ```
 
+## Obtaining the Binding Token
+
+The PLAUD Note requires a 32-character hex binding token for BLE authentication. This token is issued by PLAUD's cloud service during initial pairing with the official app. See [docs/token-extraction.md](docs/token-extraction.md) for extraction methods.
+
 ## Tests
 
 ```bash
+# Python CLI tests (118 tests)
 pytest
+
+# Swift app tests (54 tests)
+swift test
 ```
 
-118 tests covering protocol serialisation, CRC, config load/save, state tracking, Opus frame extraction, BLE transfer validation, CLI commands, sync orchestration, and retry/resume semantics. BLE integration is tested manually against the real device.
+Tests cover protocol serialisation, CRC, config, state tracking, Opus frame extraction, BLE transfer validation, CLI commands, sync orchestration, retry/resume, and BLE error classification. BLE integration is tested manually against the real device.
 
 ## Project Structure
 
 ```
-src/plaude/
-  cli.py              — Click CLI entry point
-  config.py           — TOML config with defaults and deep merge
-  state.py            — Phase-aware session state tracker
-  sync.py             — Orchestrator: download -> decode -> transcribe
-  notify.py           — macOS notifications via osascript
-  ble/
-    protocol.py       — Packet building, CRC-16, command constants
-    client.py         — BleakClient wrapper, handshake, session listing
-    transfer.py       — File download via voice packet capture
-  audio/
-    decoder.py        — Opus frame extraction and PCM decoding
-  transcription/
-    whisper.py        — Whisper model loading and transcription
+openplaudit/
+  # Python CLI
+  src/plaude/
+    cli.py              — Click CLI entry point
+    config.py           — TOML config with defaults and deep merge
+    state.py            — Phase-aware session state tracker
+    sync.py             — Orchestrator: download -> decode -> transcribe
+    notify.py           — macOS notifications via osascript
+    ble/
+      protocol.py       — Packet building, CRC-16, command constants
+      client.py         — BleakClient wrapper, handshake, session listing
+      transfer.py       — File download via voice packet capture
+    audio/
+      decoder.py        — Opus frame extraction and PCM decoding
+    transcription/
+      whisper.py        — Whisper model loading and transcription
+
+  # macOS Menubar App
+  Sources/
+    BLEKit/             — CoreBluetooth client, BLE protocol, file transfer
+    AudioKit/           — Opus decode via libopus, WAV writing
+    TranscriptionKit/   — whisper.cpp via SwiftWhisper
+    SyncEngine/         — Orchestrator, config, state, Keychain, notifications
+    OpenPlaudit/        — AppKit menubar app, SwiftUI settings and about views
+    COpus/              — C system library bridge for libopus
+
+  # Shared
+  docs/                 — Protocol notes, token extraction guide
+  llms.txt/             — LLM-friendly API references
+  scripts/              — Build and run helpers
+  Tests/                — Python (118) and Swift (54) test suites
 ```
 
 ## Disclaimer
 
-This tool is a personal utility built on a reverse-engineered BLE protocol. Firmware updates may break compatibility. There is no affiliation with PLAUD Inc.
+This is an independent project built on a reverse-engineered BLE protocol. **It can break with any PLAUD Note firmware update.** There is no affiliation with or endorsement by PLAUD Inc.
+
+If you do not have specific privacy or security concerns about cloud-based recording storage, the official PLAUD app provides a better and more reliable experience.
+
+## Author
+
+Ram Sundaram
 
 ## License
 

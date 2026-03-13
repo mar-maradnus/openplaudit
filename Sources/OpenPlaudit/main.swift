@@ -17,6 +17,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var engine: SyncEngine!
     private var settingsWindow: NSWindow?
+    private var aboutWindow: NSWindow?
     private var cancellables: Set<AnyCancellable> = []
 
     // Menu item tags
@@ -76,6 +77,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Settings...", action: #selector(showSettings), keyEquivalent: ","))
+        menu.addItem(NSMenuItem(title: "About OpenPlaudit", action: #selector(showAbout), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit OpenPlaudit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
 
@@ -154,6 +156,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         Task { @MainActor in
             engine.cancelSync()
         }
+    }
+
+    @objc func showAbout() {
+        if let w = aboutWindow {
+            w.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        let w = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 380),
+            styleMask: [.titled, .closable],
+            backing: .buffered, defer: false)
+        w.isReleasedWhenClosed = false
+        w.title = "About OpenPlaudit"
+        w.center()
+        w.contentView = NSHostingView(rootView: AboutView())
+        w.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        aboutWindow = w
     }
 
     @objc func showSettings() {
