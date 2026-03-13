@@ -20,7 +20,7 @@ A native Swift menubar app that syncs PLAUD recordings and records meetings, all
 
 1. Download `OpenPlaudit.app.zip` from the [latest release](https://github.com/mar-maradnus/openplaudit/releases) (macOS app only — the Python CLI is installed separately from source)
 2. Unzip and move `OpenPlaudit.app` to `/Applications`
-3. Right-click the app, then click Open (required once for unsigned apps)
+3. Double-click to launch (the app is signed with a Developer ID certificate and notarised by Apple)
 4. Configure your device address and token in Settings
 
 Or build from source:
@@ -33,7 +33,7 @@ swift build
 scripts/run-app.sh
 ```
 
-**Note:** For development, create a self-signed certificate named "OpenPlaudit Dev" (Keychain Access → Certificate Assistant → Create a Certificate → Code Signing). This provides a stable identity for macOS TCC permissions across rebuilds.
+**Note:** Release builds are signed with a Developer ID Application certificate and notarised by Apple. For development, the build scripts use the same Developer ID identity. If you're building from source without a Developer ID, you can ad-hoc sign (`codesign --sign -`) but will need to right-click → Open on first launch.
 
 ### Configuration
 

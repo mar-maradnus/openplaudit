@@ -4,7 +4,7 @@ Native macOS menubar app for PLAUD Note. BLE sync, Opus decode, whisper.cpp tran
 
 ## Package: `OpenPlaudit` (v0.4.0)
 
-Build: `swift build`. Run: `scripts/run-app.sh`. Release: `scripts/build-release.sh` (produces `.app.zip`). Requires macOS 14+, `brew install opus`.
+Build: `swift build`. Run: `scripts/run-app.sh`. Release: `scripts/build-release.sh` (produces signed, notarised `.app.zip`). Requires macOS 14+, `brew install opus`.
 
 SPM targets: `BLEKit`, `AudioKit`, `TranscriptionKit`, `SyncEngine`, `MeetingKit`, `COpus` (system library), `OpenPlaudit` (app).
 
