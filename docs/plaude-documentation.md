@@ -1,6 +1,6 @@
 # OpenPlaudit Documentation
 
-Local-first CLI for the PLAUD Note AI voice recorder. Connects over Bluetooth Low Energy, downloads recordings, decodes Opus audio, and transcribes locally using OpenAI Whisper. No cloud services are involved at any point in the pipeline.
+Local-first tools for the PLAUD Note AI voice recorder. Includes a Python CLI and a native macOS menubar app. Both connect over Bluetooth Low Energy, download recordings, decode Opus audio, and transcribe locally. The macOS app also records meetings (Teams, Zoom, Webex, FaceTime, Slack) using ScreenCaptureKit and transcribes them with whisper.cpp. No cloud services are involved at any point in the pipeline.
 
 Built as a replacement for PLAUD's proprietary cloud-based workflow, which requires uploading recordings to PLAUD's servers for transcription. OpenPlaudit keeps all data on the local machine and writes transcripts to a configurable directory.
 

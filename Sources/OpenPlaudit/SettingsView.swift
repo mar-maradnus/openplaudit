@@ -1,13 +1,19 @@
 /// Settings window — sidebar navigation with device, output, transcription, sync sections.
 
+import AppKit
+import AVFoundation
 import SwiftUI
 import SyncEngine
+import TranscriptionKit
+import MeetingKit
 
 struct SettingsView: View {
     @ObservedObject var engine: SyncEngine
+    @ObservedObject var meetingEngine: MeetingEngine
 
     @State private var address: String = ""
     @State private var token: String = ""
+    @State private var deviceName: String = ""
     @State private var baseDir: String = ""
     @State private var model: String = ""
     @State private var language: String = ""
@@ -20,12 +26,23 @@ struct SettingsView: View {
     @State private var restoreMessage: String?
     @State private var saveError: String?
     @State private var selectedSection: SettingsSection = .device
+    @State private var modelFileInfo: String?
+
+    // Meeting config state
+    @State private var meetingEnabled: Bool = false
+    @State private var meetingAutoRecord: Bool = false
+    @State private var meetingIncludeBrowsers: Bool = false
+    @State private var meetingConsentAcknowledged: Bool = false
+    @State private var meetingMonitoredApps: Set<String> = []
+    @State private var meetingMicDeviceID: String = ""
+    @State private var availableMics: [(id: String, name: String)] = []
 
     enum SettingsSection: String, CaseIterable, Identifiable {
         case device = "Device"
         case output = "Output"
         case transcription = "Transcription"
         case sync = "Sync"
+        case meetings = "Meetings"
 
         var id: String { rawValue }
 
@@ -35,6 +52,7 @@ struct SettingsView: View {
             case .output: return "folder"
             case .transcription: return "text.bubble"
             case .sync: return "arrow.triangle.2.circlepath"
+            case .meetings: return "video.fill"
             }
         }
     }
@@ -51,8 +69,11 @@ struct SettingsView: View {
             detailView
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .frame(width: 560, height: 360)
-        .onAppear { loadFromConfig() }
+        .frame(width: 560, height: 400)
+        .onAppear {
+            loadFromConfig()
+            refreshModelInfo()
+        }
     }
 
     // MARK: - Detail Views
@@ -64,14 +85,25 @@ struct SettingsView: View {
         case .output: outputSection
         case .transcription: transcriptionSection
         case .sync: syncSection
+        case .meetings: meetingsSection
         }
     }
 
     private var deviceSection: some View {
         Form {
             Section {
+                if !deviceName.isEmpty {
+                    LabeledContent("Device Name:", value: deviceName)
+                        .accessibilityLabel("Device name: \(deviceName)")
+                }
                 TextField("Device Address (UUID):", text: $address)
+                    .accessibilityLabel("Device Bluetooth address")
                 SecureField("Binding Token:", text: $token)
+                    .accessibilityLabel("Device binding token")
+            } footer: {
+                if address.isEmpty {
+                    Text("Enter the BLE UUID of your PLAUD Note and the binding token from pairing.")
+                }
             }
             saveRow
         }
@@ -82,7 +114,12 @@ struct SettingsView: View {
     private var outputSection: some View {
         Form {
             Section {
-                TextField("Output Directory:", text: $baseDir)
+                HStack {
+                    TextField("Output Directory:", text: $baseDir)
+                        .accessibilityLabel("Output directory path")
+                    Button("Browse…") { browseOutputDir() }
+                        .accessibilityLabel("Choose output directory")
+                }
             } footer: {
                 Text("Audio saved to <dir>/audio, transcripts to <dir>/transcripts")
             }
@@ -96,16 +133,30 @@ struct SettingsView: View {
         Form {
             Section {
                 Picker("Model:", selection: $model) {
-                    Text("Tiny").tag("tiny")
-                    Text("Base").tag("base")
-                    Text("Small").tag("small")
-                    Text("Medium").tag("medium")
-                    Text("Large").tag("large")
+                    Text("Tiny (~75 MB)").tag("tiny")
+                    Text("Base (~142 MB)").tag("base")
+                    Text("Small (~466 MB)").tag("small")
+                    Text("Medium (~1.5 GB)").tag("medium")
+                    Text("Large (~3.1 GB)").tag("large")
                 }
+                .accessibilityLabel("Whisper model size")
                 TextField("Language:", text: $language)
+                    .accessibilityLabel("Transcription language code")
             } footer: {
-                Text("Models are downloaded on first use. Medium requires ~1.5 GB.")
+                if let info = modelFileInfo {
+                    Text(info)
+                } else {
+                    Text("Models are downloaded on first use from Hugging Face.")
+                }
             }
+
+            Section {
+                Button("Re-download Model") { redownloadModel() }
+                    .accessibilityLabel("Re-download the selected whisper model")
+            } footer: {
+                Text("Forces a fresh download of the selected model, replacing any existing file.")
+            }
+
             saveRow
         }
         .formStyle(.grouped)
@@ -116,14 +167,26 @@ struct SettingsView: View {
         Form {
             Section("Scheduling") {
                 Toggle("Auto-sync enabled", isOn: $autoSyncEnabled)
+                    .accessibilityLabel("Enable automatic sync")
                 Stepper("Interval: \(autoSyncIntervalMinutes) min",
                         value: $autoSyncIntervalMinutes, in: 1...120)
                     .disabled(!autoSyncEnabled)
+                    .accessibilityLabel("Auto-sync interval in minutes")
+            }
+
+            Section {
+                Toggle("Delete local audio files", isOn: $autoDelete)
+                    .accessibilityLabel("Delete local WAV files after transcription")
+            } header: {
+                Text("After Transcription")
+            } footer: {
+                Text("Removes the decoded WAV from your Mac after transcription completes. "
+                   + "Does not affect recordings on the device. "
+                   + "The device does not support remote file deletion.")
             }
 
             Section("Files") {
                 Toggle("Keep raw Opus files", isOn: $keepRaw)
-                Toggle("Auto-delete audio after transcription", isOn: $autoDelete)
             }
 
             Section("Notifications") {
@@ -153,6 +216,86 @@ struct SettingsView: View {
         .padding(.top, 8)
     }
 
+    private var meetingsSection: some View {
+        Form {
+            if !meetingConsentAcknowledged {
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Recording Consent")
+                            .font(.headline)
+                        Text("OpenPlaudit will capture audio from meeting apps on your Mac. You are responsible for ensuring compliance with local recording consent laws.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                        Button("I Understand") {
+                            meetingConsentAcknowledged = true
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+
+            Section("Recording") {
+                Toggle("Enable meeting recording", isOn: $meetingEnabled)
+                    .disabled(!meetingConsentAcknowledged)
+                Toggle("Auto-record when meeting detected", isOn: $meetingAutoRecord)
+                    .disabled(!meetingEnabled || !meetingConsentAcknowledged)
+            }
+
+            Section("Monitored Apps") {
+                ForEach(MeetingApp.allCases.filter({ !$0.isBrowser })) { app in
+                    Toggle(app.displayName, isOn: Binding(
+                        get: { meetingMonitoredApps.contains(app.rawValue) },
+                        set: { isOn in
+                            if isOn { meetingMonitoredApps.insert(app.rawValue) }
+                            else { meetingMonitoredApps.remove(app.rawValue) }
+                        }
+                    ))
+                }
+
+                Toggle("Include browsers (approximate)", isOn: $meetingIncludeBrowsers)
+                if meetingIncludeBrowsers {
+                    ForEach(MeetingApp.allCases.filter(\.isBrowser)) { app in
+                        Toggle(app.displayName, isOn: Binding(
+                            get: { meetingMonitoredApps.contains(app.rawValue) },
+                            set: { isOn in
+                                if isOn { meetingMonitoredApps.insert(app.rawValue) }
+                                else { meetingMonitoredApps.remove(app.rawValue) }
+                            }
+                        ))
+                        .padding(.leading, 16)
+                    }
+                }
+            }
+
+            Section {
+                Picker("Input device:", selection: $meetingMicDeviceID) {
+                    Text("System Default").tag("")
+                    ForEach(availableMics, id: \.id) { mic in
+                        Text(mic.name).tag(mic.id)
+                    }
+                }
+            } header: {
+                Text("Microphone")
+            } footer: {
+                Text("Select the microphone used during meeting recording.")
+            }
+
+            saveRow
+        }
+        .formStyle(.grouped)
+        .padding(.top, 8)
+        .onAppear { refreshMicDevices() }
+    }
+
+    private func refreshMicDevices() {
+        let discovery = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.builtInMicrophone, .externalUnknown],
+            mediaType: .audio,
+            position: .unspecified
+        )
+        availableMics = discovery.devices.map { (id: $0.uniqueID, name: $0.localizedName) }
+    }
+
     // MARK: - Shared Save Row
 
     private var saveRow: some View {
@@ -175,6 +318,7 @@ struct SettingsView: View {
         let cfg = engine.config
         address = cfg.device.address
         token = cfg.device.token
+        deviceName = cfg.device.name
         baseDir = cfg.output.baseDir
         model = cfg.transcription.model
         language = cfg.transcription.language
@@ -184,6 +328,13 @@ struct SettingsView: View {
         showPreview = cfg.notifications.showPreview
         autoSyncEnabled = cfg.sync.autoSyncEnabled
         autoSyncIntervalMinutes = cfg.sync.autoSyncIntervalMinutes
+
+        meetingEnabled = cfg.meeting.enabled
+        meetingAutoRecord = cfg.meeting.autoRecord
+        meetingIncludeBrowsers = cfg.meeting.includeBrowsers
+        meetingConsentAcknowledged = cfg.meeting.consentAcknowledged
+        meetingMonitoredApps = Set(cfg.meeting.monitoredApps)
+        meetingMicDeviceID = cfg.meeting.micDeviceID
     }
 
     private func saveConfig() {
@@ -199,7 +350,18 @@ struct SettingsView: View {
         engine.config.sync.autoSyncEnabled = autoSyncEnabled
         engine.config.sync.autoSyncIntervalMinutes = autoSyncIntervalMinutes
 
+        engine.config.meeting.enabled = meetingEnabled
+        engine.config.meeting.autoRecord = meetingAutoRecord
+        engine.config.meeting.includeBrowsers = meetingIncludeBrowsers
+        engine.config.meeting.consentAcknowledged = meetingConsentAcknowledged
+        engine.config.meeting.monitoredApps = Array(meetingMonitoredApps)
+        engine.config.meeting.micDeviceID = meetingMicDeviceID
+
         saveError = engine.persistConfig()
+
+        // Sync meeting config to engine and restart monitoring
+        meetingEngine.config = engine.config
+        meetingEngine.restartMonitoring()
 
         if autoSyncEnabled {
             engine.startAutoSync(intervalMinutes: autoSyncIntervalMinutes)
@@ -216,5 +378,47 @@ struct SettingsView: View {
         } catch {
             restoreMessage = error.localizedDescription
         }
+    }
+
+    // MARK: - Browse Output Directory
+
+    private func browseOutputDir() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Choose"
+        panel.message = "Select the output directory for recordings and transcripts"
+        if panel.runModal() == .OK, let url = panel.url {
+            baseDir = url.path
+        }
+    }
+
+    // MARK: - Model Info
+
+    private func refreshModelInfo() {
+        let filename = "ggml-\(model).bin"
+        let path = modelsDir.appendingPathComponent(filename)
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: path.path) else {
+            modelFileInfo = "Model '\(model)' not yet downloaded."
+            return
+        }
+        if let attrs = try? fm.attributesOfItem(atPath: path.path),
+           let size = attrs[FileAttributeKey.size] as? Int,
+           let date = attrs[FileAttributeKey.modificationDate] as? Date {
+            let sizeMB = Double(size) / 1_048_576.0
+            let fmt = DateFormatter()
+            fmt.dateStyle = .medium
+            fmt.timeStyle = .short
+            modelFileInfo = String(format: "Downloaded: %@  (%.0f MB)", fmt.string(from: date), sizeMB)
+        }
+    }
+
+    private func redownloadModel() {
+        let filename = "ggml-\(model).bin"
+        let path = modelsDir.appendingPathComponent(filename)
+        try? FileManager.default.removeItem(at: path)
+        modelFileInfo = "Model deleted. It will be re-downloaded on next transcription."
     }
 }

@@ -1,6 +1,8 @@
 /// About window — project information, privacy rationale, firmware warning.
 
+import AppKit
 import SwiftUI
+import SyncEngine
 
 struct AboutView: View {
     var body: some View {
@@ -8,12 +10,13 @@ struct AboutView: View {
             VStack(alignment: .leading, spacing: 16) {
                 // Header
                 HStack(spacing: 12) {
-                    Text("♪")
-                        .font(.system(size: 36))
+                    Image(systemName: "waveform")
+                        .font(.system(size: 32))
+                        .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("OpenPlaudit")
                             .font(.title2.bold())
-                        Text("v0.2.1")
+                        Text("Version 0.4.0")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -26,16 +29,16 @@ struct AboutView: View {
                     .font(.headline)
 
                 Text("""
-                    OpenPlaudit exists because of privacy and security concerns about \
-                    cloud-based recording storage. The official PLAUD app uploads recordings \
-                    to remote servers for processing. This tool keeps everything local — \
-                    recordings never leave your machine.
+                    OpenPlaudit exists for people who prefer their recordings to remain \
+                    local rather than uploaded to cloud services. The official PLAUD app \
+                    uploads recordings to remote servers for processing. This tool keeps \
+                    everything on your machine.
                     """)
                     .font(.body)
 
                 Text("""
-                    If cloud storage is not a concern for you, use the official PLAUD app. \
-                    It is better supported and will not break with firmware updates.
+                    If cloud storage is not a concern for you, the official PLAUD app \
+                    is better supported and less likely to break after firmware updates.
                     """)
                     .font(.body)
                     .foregroundStyle(.secondary)
@@ -46,18 +49,32 @@ struct AboutView: View {
                 HStack(alignment: .top, spacing: 8) {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .foregroundStyle(.yellow)
-                    Text("""
-                        This tool is built on a reverse-engineered BLE protocol. \
-                        Any firmware update to the PLAUD Note can break compatibility \
-                        without warning. There is no affiliation with PLAUD Inc.
-                        """)
-                        .font(.callout)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Built on a reverse-engineered BLE protocol.")
+                            .font(.callout.bold())
+                        Text("Firmware updates to the PLAUD Note may break compatibility without warning.")
+                            .font(.callout)
+                        Text("OpenPlaudit is not affiliated with PLAUD Inc.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 .padding(10)
                 .background(.quaternary.opacity(0.5))
                 .clipShape(RoundedRectangle(cornerRadius: 6))
 
-                Spacer(minLength: 16)
+                Divider()
+
+                // Diagnostics
+                HStack(spacing: 12) {
+                    Button("Open Logs…") { openLogs() }
+                        .accessibilityLabel("Open system logs for OpenPlaudit")
+                    Button("Reveal Data Folder…") { revealDataFolder() }
+                        .accessibilityLabel("Show OpenPlaudit data folder in Finder")
+                }
+
+                Spacer(minLength: 8)
 
                 // Footer
                 HStack {
@@ -68,10 +85,40 @@ struct AboutView: View {
                     Text("MIT License")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    Text("·")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("GitHub") {
+                        if let url = URL(string: "https://github.com/mar-maradnus/openplaudit") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                    .font(.caption)
+                    .buttonStyle(.link)
+                    .accessibilityLabel("Open project on GitHub")
                 }
             }
             .padding(20)
         }
-        .frame(minWidth: 420, maxWidth: 420, minHeight: 380, maxHeight: 500)
+        .frame(minWidth: 420, maxWidth: 420, minHeight: 420, maxHeight: 520)
+    }
+
+    private func openLogs() {
+        // Open Console.app filtered to our subsystem
+        let url = URL(fileURLWithPath: "/System/Applications/Utilities/Console.app")
+        NSWorkspace.shared.open(url)
+    }
+
+    private func revealDataFolder() {
+        let path = NSString(string: "~/.local/share/openplaudit").expandingTildeInPath
+        let url = URL(fileURLWithPath: path)
+        let fm = FileManager.default
+        if fm.fileExists(atPath: path) {
+            NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: url.path)
+        } else {
+            // Create it first so Finder has something to show
+            try? fm.createDirectory(at: url, withIntermediateDirectories: true)
+            NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: url.path)
+        }
     }
 }

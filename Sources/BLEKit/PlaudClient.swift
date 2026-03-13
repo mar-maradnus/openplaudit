@@ -70,6 +70,7 @@ public actor PlaudClient {
     public private(set) var voicePacketCount = 0
     public var isReceiving = false
     public private(set) var isConnected = false
+    public private(set) var deviceName: String?
 
     public init(address: String, token: String) {
         self.address = address
@@ -180,7 +181,10 @@ public actor PlaudClient {
         }
     }
 
-    func setPeripheral(_ p: CBPeripheral) { peripheral = p }
+    func setPeripheral(_ p: CBPeripheral) {
+        peripheral = p
+        deviceName = p.name
+    }
     func setTxCharacteristic(_ c: CBCharacteristic) { txCharacteristic = c }
     func setRxCharacteristic(_ c: CBCharacteristic) { rxCharacteristic = c }
 }
@@ -207,13 +211,42 @@ private final class ClientDelegate: NSObject, CBCentralManagerDelegate, CBPeriph
 
     // MARK: - Central Manager
 
+    private var scanTimer: DispatchWorkItem?
+    private var scanTimeoutTimer: DispatchWorkItem?
+    private let nordicManufacturerID: UInt16 = 0x0059
+    private let scanTimeout: TimeInterval = 15.0
+
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
         switch central.state {
         case .poweredOn:
+            // First: scan by service UUID
             central.scanForPeripherals(
                 withServices: [plaudServiceCBUUID],
                 options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
             )
+
+            // After half the timeout: fallback to broader scan (Nordic mfr data / name)
+            let fallback = DispatchWorkItem { [weak self] in
+                guard let self, self.discoveredPeripheral == nil else { return }
+                central.stopScan()
+                central.scanForPeripherals(
+                    withServices: nil,
+                    options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
+                )
+            }
+            scanTimer = fallback
+            queue.asyncAfter(deadline: .now() + scanTimeout / 2, execute: fallback)
+
+            // After full timeout: give up
+            let timeout = DispatchWorkItem { [weak self] in
+                guard let self, self.discoveredPeripheral == nil else { return }
+                central.stopScan()
+                self.connectContinuation?.resume(throwing: BLEError.deviceNotFound)
+                self.connectContinuation = nil
+            }
+            scanTimeoutTimer = timeout
+            queue.asyncAfter(deadline: .now() + scanTimeout, execute: timeout)
+
         case .poweredOff:
             connectContinuation?.resume(throwing: BLEError.bluetoothOff)
             connectContinuation = nil
@@ -227,10 +260,23 @@ private final class ClientDelegate: NSObject, CBCentralManagerDelegate, CBPeriph
 
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
                          advertisementData: [String: Any], rssi RSSI: NSNumber) {
-        // Match by UUID (macOS uses UUIDs, not MAC addresses)
         let id = peripheral.identifier.uuidString.uppercased()
-        guard id == targetAddress || peripheral.name?.lowercased().contains("plaud") == true else { return }
+        let name = peripheral.name ?? advertisementData[CBAdvertisementDataLocalNameKey] as? String
+        let mfrData = advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data
+        let mfrID = mfrData.flatMap { d -> UInt16? in
+            guard d.count >= 2 else { return nil }
+            return d.withUnsafeBytes { $0.loadUnaligned(fromByteOffset: 0, as: UInt16.self).littleEndian }
+        }
 
+        // Match by UUID, name, or Nordic manufacturer ID
+        let isMatch = id == targetAddress
+            || name?.lowercased().contains("plaud") == true
+            || mfrID == nordicManufacturerID
+
+        guard isMatch else { return }
+
+        scanTimer?.cancel()
+        scanTimeoutTimer?.cancel()
         central.stopScan()
         discoveredPeripheral = peripheral
         peripheral.delegate = self

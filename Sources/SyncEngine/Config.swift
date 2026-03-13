@@ -19,10 +19,12 @@ public struct AppConfig: Equatable, Sendable {
     public var transcription = TranscriptionConfig()
     public var sync = SyncConfig()
     public var notifications = NotificationConfig()
+    public var meeting = MeetingConfig()
 
     public struct DeviceConfig: Equatable, Sendable {
         public var address: String = ""
         public var token: String = ""
+        public var name: String = ""
     }
 
     public struct OutputConfig: Equatable, Sendable {
@@ -44,6 +46,20 @@ public struct AppConfig: Equatable, Sendable {
     public struct NotificationConfig: Equatable, Sendable {
         public var enabled: Bool = true
         public var showPreview: Bool = true
+    }
+
+    public struct MeetingConfig: Equatable, Sendable {
+        public var enabled: Bool = false
+        public var autoRecord: Bool = false
+        public var monitoredApps: [String] = [
+            "com.microsoft.teams2",
+            "us.zoom.xos",
+            "com.cisco.webexmeetings",
+            "com.apple.FaceTime",
+        ]
+        public var includeBrowsers: Bool = false
+        public var micDeviceID: String = ""  // empty = system default
+        public var consentAcknowledged: Bool = false
     }
 
     public init() {}
@@ -126,15 +142,20 @@ public struct OutputDirs {
     public let audio: URL
     public let transcripts: URL
     public let raw: URL
+    public let meetingAudio: URL
+    public let meetingTranscripts: URL
 }
 
 public func getOutputDirs(_ cfg: AppConfig) -> OutputDirs {
     let base = URL(fileURLWithPath: NSString(string: cfg.output.baseDir).expandingTildeInPath)
+    let meetings = base.appendingPathComponent("meetings")
     return OutputDirs(
         base: base,
         audio: base.appendingPathComponent("audio"),
         transcripts: base.appendingPathComponent("transcripts"),
-        raw: base.appendingPathComponent("raw")
+        raw: base.appendingPathComponent("raw"),
+        meetingAudio: meetings.appendingPathComponent("audio"),
+        meetingTranscripts: meetings.appendingPathComponent("transcripts")
     )
 }
 
@@ -146,6 +167,7 @@ private func parseConfig(_ table: TOMLTable) -> AppConfig {
     if let device = table["device"]?.table {
         if let addr = device["address"]?.string { cfg.device.address = addr }
         if let tok = device["token"]?.string { cfg.device.token = tok }
+        if let name = device["name"]?.string { cfg.device.name = name }
     }
 
     if let output = table["output"]?.table {
@@ -169,6 +191,17 @@ private func parseConfig(_ table: TOMLTable) -> AppConfig {
         if let sp = notif["show_preview"]?.bool { cfg.notifications.showPreview = sp }
     }
 
+    if let meeting = table["meeting"]?.table {
+        if let en = meeting["enabled"]?.bool { cfg.meeting.enabled = en }
+        if let ar = meeting["auto_record"]?.bool { cfg.meeting.autoRecord = ar }
+        if let apps = meeting["monitored_apps"]?.array {
+            cfg.meeting.monitoredApps = apps.compactMap { $0.string }
+        }
+        if let ib = meeting["include_browsers"]?.bool { cfg.meeting.includeBrowsers = ib }
+        if let mic = meeting["mic_device_id"]?.string { cfg.meeting.micDeviceID = mic }
+        if let ca = meeting["consent_acknowledged"]?.bool { cfg.meeting.consentAcknowledged = ca }
+    }
+
     return cfg
 }
 
@@ -178,6 +211,7 @@ private func configToTOML(_ cfg: AppConfig) -> TOMLTable {
     let device = TOMLTable()
     device["address"] = cfg.device.address
     device["token"] = cfg.device.token
+    device["name"] = cfg.device.name
     table["device"] = device
 
     let output = TOMLTable()
@@ -200,6 +234,16 @@ private func configToTOML(_ cfg: AppConfig) -> TOMLTable {
     notifications["enabled"] = cfg.notifications.enabled
     notifications["show_preview"] = cfg.notifications.showPreview
     table["notifications"] = notifications
+
+    let meeting = TOMLTable()
+    meeting["enabled"] = cfg.meeting.enabled
+    meeting["auto_record"] = cfg.meeting.autoRecord
+    let appsArray = TOMLArray(cfg.meeting.monitoredApps)
+    meeting["monitored_apps"] = appsArray
+    meeting["include_browsers"] = cfg.meeting.includeBrowsers
+    meeting["mic_device_id"] = cfg.meeting.micDeviceID
+    meeting["consent_acknowledged"] = cfg.meeting.consentAcknowledged
+    table["meeting"] = meeting
 
     return table
 }
@@ -233,6 +277,7 @@ public func setNested(_ cfg: inout AppConfig, key: String, value: String) throws
         switch name {
         case "address": cfg.device.address = value
         case "token": cfg.device.token = value
+        case "name": cfg.device.name = value
         default: throw ConfigError.unknownKey(key)
         }
     case "output":
@@ -258,6 +303,15 @@ public func setNested(_ cfg: inout AppConfig, key: String, value: String) throws
         switch name {
         case "enabled": cfg.notifications.enabled = parseBool(value)
         case "show_preview": cfg.notifications.showPreview = parseBool(value)
+        default: throw ConfigError.unknownKey(key)
+        }
+    case "meeting":
+        switch name {
+        case "enabled": cfg.meeting.enabled = parseBool(value)
+        case "auto_record": cfg.meeting.autoRecord = parseBool(value)
+        case "include_browsers": cfg.meeting.includeBrowsers = parseBool(value)
+        case "mic_device_id": cfg.meeting.micDeviceID = value
+        case "consent_acknowledged": cfg.meeting.consentAcknowledged = parseBool(value)
         default: throw ConfigError.unknownKey(key)
         }
     default:

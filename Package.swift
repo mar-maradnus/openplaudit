@@ -31,7 +31,10 @@ let package = Package(
         .target(
             name: "AudioKit",
             dependencies: ["COpus"],
-            path: "Sources/AudioKit"
+            path: "Sources/AudioKit",
+            linkerSettings: [
+                .unsafeFlags(["-L/opt/homebrew/lib"]),
+            ]
         ),
         .target(
             name: "SyncEngine",
@@ -44,11 +47,17 @@ let package = Package(
             dependencies: ["SwiftWhisper"],
             path: "Sources/TranscriptionKit"
         ),
+        .target(
+            name: "MeetingKit",
+            dependencies: ["SyncEngine", "TranscriptionKit"],
+            path: "Sources/MeetingKit",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
 
         // --- App ---
         .executableTarget(
             name: "OpenPlaudit",
-            dependencies: ["BLEKit", "AudioKit", "SyncEngine", "TranscriptionKit"],
+            dependencies: ["BLEKit", "AudioKit", "SyncEngine", "TranscriptionKit", "MeetingKit"],
             path: "Sources/OpenPlaudit",
             exclude: ["Resources/Info.plist", "Resources/OpenPlaudit.entitlements"],
             swiftSettings: [.swiftLanguageMode(.v5)]
@@ -67,8 +76,13 @@ let package = Package(
         ),
         .testTarget(
             name: "SyncEngineTests",
-            dependencies: ["SyncEngine", .product(name: "Testing", package: "swift-testing")],
+            dependencies: ["SyncEngine", "BLEKit", .product(name: "Testing", package: "swift-testing")],
             path: "Tests/SyncEngineTests"
+        ),
+        .testTarget(
+            name: "MeetingKitTests",
+            dependencies: ["MeetingKit", "SyncEngine", .product(name: "Testing", package: "swift-testing")],
+            path: "Tests/MeetingKitTests"
         ),
     ]
 )
