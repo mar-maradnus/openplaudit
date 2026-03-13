@@ -101,6 +101,7 @@ public final class SyncEngine: ObservableObject {
         public let date: Date
         public let durationSeconds: Double?
         public let filename: String
+        public let transcriptPreview: String?
     }
 
     // MARK: - Sync
@@ -139,6 +140,9 @@ public final class SyncEngine: ObservableObject {
             throw error
         }
         isConnected = true
+        if let name = await client.deviceName, !name.isEmpty {
+            config.device.name = name
+        }
 
         try Task.checkCancellation()
 
@@ -338,6 +342,17 @@ public final class SyncEngine: ObservableObject {
         return Double(file.length) / file.processingFormat.sampleRate
     }
 
+    /// Extract the first ~60 characters of the transcript text from a JSON file.
+    static func transcriptPreview(_ url: URL) -> String? {
+        guard let data = try? Data(contentsOf: url),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let text = json["text"] as? String,
+              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.count <= 60 { return trimmed }
+        return String(trimmed.prefix(57)) + "..."
+    }
+
     // MARK: - Config Persistence
 
     /// Save config to TOML (without token) and token to Keychain.
@@ -356,11 +371,15 @@ public final class SyncEngine: ObservableObject {
     // MARK: - Helpers
 
     private func addRecentRecording(sid: UInt32, duration: Double?, filename: String) {
+        let dirs = getOutputDirs(config)
+        let jsonPath = dirs.transcripts.appendingPathComponent("\(filename).json")
+        let preview = Self.transcriptPreview(jsonPath)
         let recording = RecentRecording(
             id: sid,
             date: Date(timeIntervalSince1970: TimeInterval(sid)),
             durationSeconds: duration,
-            filename: filename
+            filename: filename,
+            transcriptPreview: preview
         )
         recentRecordings.insert(recording, at: 0)
         if recentRecordings.count > 10 { recentRecordings.removeLast() }
@@ -381,11 +400,16 @@ public final class SyncEngine: ObservableObject {
 
             let duration = Self.wavDuration(wavPath)
 
+            // Load transcript preview (first 60 chars of full text)
+            let jsonPath = dirs.transcripts.appendingPathComponent("\(fname).json")
+            let preview = Self.transcriptPreview(jsonPath)
+
             recordings.append(RecentRecording(
                 id: sid,
                 date: Date(timeIntervalSince1970: TimeInterval(sid)),
                 durationSeconds: duration,
-                filename: fname
+                filename: fname,
+                transcriptPreview: preview
             ))
         }
 

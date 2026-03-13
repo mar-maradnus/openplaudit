@@ -1,38 +1,40 @@
 #!/bin/bash
 # Build a release .app bundle and zip it for GitHub Releases.
 #
-# Produces: .build/release/OpenPlaudit.app.zip
+# Produces: OpenPlaudit.app.zip in the project root.
 #
-# The binary is release-optimised and ad-hoc codesigned with BLE entitlement.
+# Uses /tmp to avoid com.apple.provenance xattr issues with codesign on macOS 15+.
+# Signed with self-signed "OpenPlaudit Dev" certificate for stable TCC identity.
 # Not notarised — users must right-click → Open on first launch.
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-RELEASE_DIR="$PROJECT_DIR/.build/release"
-APP_DIR="$RELEASE_DIR/OpenPlaudit.app"
+APP_DIR="/tmp/OpenPlaudit-release.app"
 CONTENTS="$APP_DIR/Contents"
 MACOS="$CONTENTS/MacOS"
 ENTITLEMENTS="$PROJECT_DIR/Sources/OpenPlaudit/Resources/OpenPlaudit.entitlements"
 
 echo "Building release binary..."
 cd "$PROJECT_DIR"
-swift build -c release 2>&1
+/usr/bin/swift build -c release 2>&1
 
 echo "Creating .app bundle..."
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS"
 
-cp "$RELEASE_DIR/OpenPlaudit" "$MACOS/OpenPlaudit"
+# cat avoids cp's xattr propagation
+cat .build/release/OpenPlaudit > "$MACOS/OpenPlaudit"
+chmod +x "$MACOS/OpenPlaudit"
 cp Sources/OpenPlaudit/Resources/Info.plist "$CONTENTS/Info.plist"
 
 echo "Codesigning with entitlements..."
-codesign --force --sign - --entitlements "$ENTITLEMENTS" "$MACOS/OpenPlaudit"
+codesign --force --sign "OpenPlaudit Dev" --entitlements "$ENTITLEMENTS" "$MACOS/OpenPlaudit"
 
 echo "Creating zip..."
-cd "$RELEASE_DIR"
-zip -r OpenPlaudit.app.zip OpenPlaudit.app
+cd /tmp
+zip -r "$PROJECT_DIR/OpenPlaudit.app.zip" "$(basename "$APP_DIR")"
 
-SIZE=$(du -sh OpenPlaudit.app.zip | cut -f1)
+SIZE=$(du -sh "$PROJECT_DIR/OpenPlaudit.app.zip" | cut -f1)
 echo ""
-echo "Done: $RELEASE_DIR/OpenPlaudit.app.zip ($SIZE)"
-echo "Upload with: gh release create v0.2.0 $RELEASE_DIR/OpenPlaudit.app.zip"
+echo "Done: $PROJECT_DIR/OpenPlaudit.app.zip ($SIZE)"
+echo "Upload with: gh release create v0.4.0 $PROJECT_DIR/OpenPlaudit.app.zip"

@@ -2,13 +2,13 @@
 
 Native macOS menubar app for PLAUD Note. BLE sync, Opus decode, whisper.cpp transcription. Shares config/state with the Python CLI (`plaude`).
 
-## Package: `OpenPlaudit` (v0.2.1)
+## Package: `OpenPlaudit` (v0.4.0)
 
 Build: `swift build`. Run: `scripts/run-app.sh`. Release: `scripts/build-release.sh` (produces `.app.zip`). Requires macOS 14+, `brew install opus`.
 
-SPM targets: `BLEKit`, `AudioKit`, `TranscriptionKit`, `SyncEngine`, `COpus` (system library), `OpenPlaudit` (app).
+SPM targets: `BLEKit`, `AudioKit`, `TranscriptionKit`, `SyncEngine`, `MeetingKit`, `COpus` (system library), `OpenPlaudit` (app).
 
-Tests: 68 (BLE protocol + error classification, Opus decoder, session state + recovery, config).
+Tests: 118 (BLE protocol + error classification, Opus decoder, session state + recovery, config, meeting detection, audio conversion, meeting config, meeting state persistence).
 
 ---
 
@@ -35,7 +35,7 @@ Command IDs: `cmdHandshake` (1), `cmdTimeSync` (4), `cmdGetRecSessions` (26), `c
 ```swift
 let client = PlaudClient(address: "UUID-STRING", token: "hex_token")
 
-try await client.connect()                  // CoreBluetooth scan + connect + service discovery
+try await client.connect()                  // CoreBluetooth scan + connect + service discovery (15s timeout, Nordic fallback)
 let ok = try await client.handshake()       // Authenticate with binding token -> Bool
 try await client.timeSync()                 // Sync Unix time to device
 let sessions = try await client.getSessions() // -> [RecordingSession]
@@ -150,7 +150,7 @@ engine.stopAutoSync()
 engine.status                // .idle | .connecting | .syncing(current, total) | .error(String)
 engine.isConnected           // Bool
 engine.progress              // SyncProgress? { bytesReceived, bytesExpected, percentage }
-engine.recentRecordings      // [RecentRecording] (up to 10, sorted newest first)
+engine.recentRecordings      // [RecentRecording] (up to 10, sorted newest first, with transcript preview)
 
 // Config
 engine.config                // AppConfig (read/write)
@@ -227,3 +227,124 @@ Both tools share:
 - Transcript JSON format: identical structure
 
 The Swift app stores the token in Keychain and writes an empty token to TOML. The CLI reads the token from TOML. Users must set the token in both places, or use the app exclusively.
+
+---
+
+## `MeetingKit` — Meeting Recording
+
+### MeetingDetector.swift — Process-based app detection
+
+```swift
+import MeetingKit
+
+let detector = MeetingDetector()
+let apps = detector.detect(
+    monitoredApps: ["us.zoom.xos", "com.apple.FaceTime"],
+    includeBrowsers: false
+)
+// apps: [MeetingApp] — enum with .zoom, .facetime, .teamsNew, etc.
+
+// Polling mode (fires onChange when apps change):
+detector.onChange = { apps, newApps in ... }  // newApps: Set<String> of newly appeared bundle IDs
+detector.startMonitoring(monitoredApps: [...], includeBrowsers: false, interval: 5.0)
+detector.stopMonitoring()
+```
+
+`MeetingApp` enum: `.teamsNew`, `.teamsClassic`, `.zoom`, `.webex`, `.slack`, `.facetime`, `.chrome`, `.safari`, `.firefox`. Properties: `displayName`, `isBrowser`, `rawValue` (bundle ID).
+
+For tests: inject `runningAppProvider` closure to avoid NSWorkspace dependency.
+
+### AudioCaptureSession.swift — ScreenCaptureKit wrapper
+
+```swift
+let session = AudioCaptureSession(outputDir: tempDir)
+try await session.start(appBundleID: "us.zoom.xos")
+// ... captures audio ...
+let wavPath = try await session.stop()   // Returns URL to 16kHz mono 16-bit WAV
+```
+
+- Uses `SCStream` with `capturesAudio = true`, `sampleRate = 16000`, `channelCount = 1`
+- Video frames are discarded (minimum 2x2 @ 1fps to satisfy API)
+- Float32 PCM from ScreenCaptureKit converted to Int16 in the audio callback
+- Periodic flush to disk (60s chunks) to limit RAM usage during long meetings
+- Chunks reassembled into final WAV on stop
+
+Pure conversion function: `float32ToInt16(_ sample: Float) -> Int16`
+
+### MeetingRecorder.swift — Single recording coordinator
+
+```swift
+let recorder = MeetingRecorder(outputBaseDir: dirs.meetingAudio)
+try await recorder.start(appBundleID: "us.zoom.xos", appDisplayName: "Zoom")
+// ... recording ...
+let recording = try await recorder.stop()
+// recording: MeetingRecording { wavPath, appName, startedAt, durationSeconds }
+```
+
+### MeetingEngine.swift — @MainActor ObservableObject orchestrator
+
+```swift
+let meetingEngine = MeetingEngine(config: appConfig, transcriber: sharedTranscriber)
+meetingEngine.startMonitoring()    // Start polling for meeting apps
+meetingEngine.stopMonitoring()
+
+// Manual control
+await meetingEngine.startManualRecording(app: .zoom)
+await meetingEngine.stopManualRecording()
+
+// Observable state
+meetingEngine.recordingState       // .idle | .monitoring | .recording(app) | .transcribing | .error(String)
+meetingEngine.detectedApps         // [MeetingApp]
+meetingEngine.recentMeetings       // [RecentMeeting]
+meetingEngine.recordingDurationString // "2:34"
+```
+
+Auto-record: when `autoRecord` is true, starts recording 10s after a meeting app appears, stops 10s after it disappears. Apps already running when monitoring starts are not treated as new appearances (previouslyDetected is seeded on start).
+
+Shares `Transcriber` instance with `SyncEngine` (model loaded once). After recording, transcribes to the same JSON format as PLAUD recordings.
+
+State persisted in `~/.local/share/openplaudit/meeting-state.json` via `MeetingState`. On launch, `rebuildRecentMeetings()` restores the list from disk.
+
+### MeetingState.swift — Persistent meeting state
+
+```swift
+let state = MeetingState()  // Default: ~/.local/share/openplaudit/meeting-state.json
+state.markRecorded(id: uuid, appName: "Zoom", duration: 120.5, filename: "20260313_UTC.wav")
+state.markTranscribed(id: uuid)
+state.markFailed(id: uuid, reason: "capture error")
+state.needsTranscription(id)  // -> Bool
+state.isComplete(id)           // -> Bool
+try state.saveAtomically()     // Atomic write + rolling backup
+```
+
+Corrupt files quarantined with timestamps, same pattern as `SessionState`.
+
+### Config additions
+
+```swift
+// In AppConfig:
+cfg.meeting.enabled               // Bool, default false
+cfg.meeting.autoRecord            // Bool, default false
+cfg.meeting.monitoredApps         // [String], bundle IDs
+cfg.meeting.includeBrowsers       // Bool, default false
+cfg.meeting.micDeviceID           // String, empty = system default
+cfg.meeting.consentAcknowledged   // Bool, default false
+```
+
+TOML section: `[meeting]` with fields `enabled`, `auto_record`, `monitored_apps`, `include_browsers`, `mic_device_id`, `consent_acknowledged`.
+
+### Output directories
+
+```
+~/Documents/OpenPlaudit/
+    meetings/
+        audio/          ← Meeting WAV files (yyyyMMdd_HHmmss_UTC.wav)
+        transcripts/    ← Meeting transcript JSON
+```
+
+Available via `getOutputDirs(cfg).meetingAudio` and `getOutputDirs(cfg).meetingTranscripts`.
+
+### Permissions
+
+- **Screen recording**: macOS prompts at runtime when `SCStream` starts (no entitlement needed)
+- **Microphone**: `NSMicrophoneUsageDescription` in Info.plist + `com.apple.security.device.audio-input` entitlement

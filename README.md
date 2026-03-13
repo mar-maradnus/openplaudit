@@ -14,7 +14,7 @@ OpenPlaudit operates entirely on your local machine. Recordings never leave your
 
 ## macOS Menubar App
 
-A native Swift menubar app that syncs recordings silently in the background.
+A native Swift menubar app that syncs PLAUD recordings and records meetings, all locally.
 
 ### Install
 
@@ -33,27 +33,37 @@ swift build
 scripts/run-app.sh
 ```
 
+**Note:** For development, create a self-signed certificate named "OpenPlaudit Dev" (Keychain Access → Certificate Assistant → Create a Certificate → Code Signing). This provides a stable identity for macOS TCC permissions across rebuilds.
+
 ### Configuration
 
-After launch, a `♪` icon appears in the menubar. Click it and choose **Settings**.
+After launch, a waveform icon appears in the menubar. Click it and choose **Settings**.
 
 1. **Device tab** — enter your BLE device address (UUID) and binding token. The token is stored in the macOS Keychain, not in the config file.
 2. **Output tab** — change the output directory if desired (default: `~/Documents/OpenPlaudit`).
 3. **Transcription tab** — select the Whisper model (tiny → large, default: medium) and language. Models are downloaded on first use (~1.5 GB for medium).
 4. **Sync tab** — toggle auto-sync and set the interval (1–120 minutes). Toggle raw file retention, auto-delete after transcription, and notifications.
+5. **Meetings tab** — acknowledge consent, enable meeting recording, configure monitored apps, toggle auto-record, and select microphone.
 
 Click **Save** in each tab to apply. To find your device UUID, use `plaude scan` from the CLI, or check Console.app for BLE discovery logs.
 
-### Usage
+### PLAUD Sync
 
-- **Sync Now** — click in the menubar to start a manual sync. The icon changes during sync (`♪…` connecting, `♪↻` syncing) and the menu shows progress.
+- **Sync Now** — click in the menubar to start a manual sync. The icon changes during sync and the menu shows progress (e.g. "Syncing 2/5...").
 - **Cancel Sync** — appears during sync. Cooperative cancellation; partial downloads are resumed on next sync.
 - **Auto-sync** — when enabled, syncs on the configured interval. Runs silently in the background.
-- **Recent recordings** — the menubar menu shows the last 5 recordings with date and duration.
-- **Notifications** — a summary notification is sent after each sync cycle (e.g. "3 recordings synced").
-- **State recovery** — if `state.json` becomes corrupted, go to Settings → Sync → "Restore State from Backup" to recover from the last known good state.
-- **About** — shows project information, privacy rationale, and firmware compatibility warning.
-- **Logging** — structured logs are available in Console.app (filter by `com.openplaudit.app`).
+- **Recent recordings** — the last 5 recordings with date, duration, and transcript preview. Click to open the transcript or audio file.
+- **Notifications** — a summary notification is sent after each sync cycle.
+- **State recovery** — if `state.json` becomes corrupted, go to Settings → Sync → "Restore State from Backup".
+
+### Meeting Recording
+
+OpenPlaudit detects running meeting applications (Teams, Zoom, Webex, FaceTime, Slack, and optionally browsers) and records system audio plus microphone locally using ScreenCaptureKit. Recordings are transcribed with the same whisper.cpp pipeline as PLAUD recordings.
+
+- **Manual recording** — click "Record Meeting" in the menubar. The icon changes to a red recording indicator and the menu shows elapsed time. Click "Stop Recording" to finish.
+- **Auto-record** — when enabled, recording starts automatically 10 seconds after a meeting app launches and stops 10 seconds after it quits.
+- **Consent** — meeting recording must be explicitly enabled in Settings after acknowledging a consent notice. You are responsible for complying with local recording consent laws.
+- **Output** — meeting recordings are saved to `~/Documents/OpenPlaudit/meetings/audio/` and transcripts to `~/Documents/OpenPlaudit/meetings/transcripts/`.
 
 ### Troubleshooting
 
@@ -68,23 +78,33 @@ Error messages in the menubar include actionable guidance:
 | Transfer rejected | Ensure device is not recording |
 | Timeout / No response | Move closer or restart the device |
 | BLE service not found | Device may need a firmware update (note: updates may break OpenPlaudit) |
+| Screen Recording permission | macOS prompts on first meeting recording; grant access in System Settings |
 
 ### Features
 
-- Background sync on a configurable interval (1–120 minutes)
+- Background PLAUD sync on a configurable interval (1–120 minutes)
+- Meeting recording with auto-detect for Teams, Zoom, Webex, FaceTime, Slack
 - Local transcription via whisper.cpp with Metal acceleration on Apple Silicon
 - Secure token storage in macOS Keychain
+- Transcript preview in recent recordings menu
 - Cancel in-progress syncs with cooperative cancellation
 - macOS notifications with optional transcript preview
 - Structured logging visible in Console.app
 - State recovery from corruption with rolling backups
 - Classified BLE error messages with actionable troubleshooting guidance
 
+### Permissions
+
+- **Bluetooth** — required for PLAUD sync
+- **Screen Recording** — required for meeting audio capture (macOS prompts at runtime)
+- **Microphone** — required for meeting mic capture
+
 ### Requirements
 
 - macOS 14+ (Sonoma)
 - Homebrew: `brew install opus`
-- A PLAUD Note device with known BLE address and binding token
+- A PLAUD Note device with known BLE address and binding token (for PLAUD sync)
+- Screen Recording and Microphone permissions (for meeting recording)
 
 ## Python CLI
 
@@ -152,6 +172,14 @@ auto_sync_interval_minutes = 30
 [notifications]
 enabled = true
 show_preview = true
+
+[meeting]
+enabled = false
+auto_record = false
+monitored_apps = ["com.microsoft.teams2", "us.zoom.xos", "com.cisco.webexmeetings", "com.apple.FaceTime"]
+include_browsers = false
+mic_device_id = ""
+consent_acknowledged = false
 ```
 
 **State**: `~/.local/share/openplaudit/state.json`
@@ -159,9 +187,11 @@ show_preview = true
 **Output**:
 ```
 ~/Documents/OpenPlaudit/
-  audio/        — decoded WAV files (16kHz mono)
-  transcripts/  — JSON transcripts with timestamped segments
-  raw/          — raw Opus downloads (if keep_raw = true)
+  audio/              — decoded PLAUD WAV files (16kHz mono)
+  transcripts/        — PLAUD transcript JSON with timestamped segments
+  raw/                — raw Opus downloads (if keep_raw = true)
+  meetings/audio/     — meeting recording WAV files
+  meetings/transcripts/ — meeting transcript JSON
 ```
 
 ## Sync Workflow
@@ -199,11 +229,11 @@ The PLAUD Note requires a 32-character hex binding token for BLE authentication.
 # Python CLI tests (118 tests)
 pytest
 
-# Swift app tests (68 tests)
+# Swift app tests (118 tests)
 swift test
 ```
 
-Tests cover protocol serialisation, CRC, BLE error classification, config loading, state tracking with backup/recovery, Opus frame extraction, BLE transfer validation, CLI commands, sync orchestration, and retry/resume. BLE integration is tested manually against the real device.
+Tests cover protocol serialisation, CRC, BLE error classification, config loading, state tracking with backup/recovery, Opus frame extraction, BLE transfer validation, CLI commands, sync orchestration, retry/resume, meeting detection, audio conversion, and meeting state persistence. BLE and meeting recording integration are tested manually.
 
 ## Project Structure
 
@@ -231,6 +261,7 @@ openplaudit/
     AudioKit/           — Opus decode via libopus, WAV writing
     TranscriptionKit/   — whisper.cpp via SwiftWhisper
     SyncEngine/         — Orchestrator, config, state, Keychain, notifications
+    MeetingKit/         — Meeting detection, ScreenCaptureKit recording, transcription
     OpenPlaudit/        — AppKit menubar app, SwiftUI settings and about views
     COpus/              — C system library bridge for libopus
 
