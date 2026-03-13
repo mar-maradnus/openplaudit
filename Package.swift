@@ -10,6 +10,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/LebJe/TOMLKit.git", from: "0.6.0"),
+        .package(url: "https://github.com/exPHAT/SwiftWhisper.git", branch: "master"),
         .package(url: "https://github.com/swiftlang/swift-testing.git", from: "0.12.0"),
     ],
     targets: [
@@ -34,12 +35,13 @@ let package = Package(
         ),
         .target(
             name: "SyncEngine",
-            dependencies: ["BLEKit", "AudioKit", "TOMLKit"],
+            dependencies: ["BLEKit", "AudioKit", "TOMLKit", "TranscriptionKit"],
             path: "Sources/SyncEngine",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .target(
             name: "TranscriptionKit",
+            dependencies: ["SwiftWhisper"],
             path: "Sources/TranscriptionKit"
         ),
 
