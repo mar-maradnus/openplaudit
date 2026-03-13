@@ -165,7 +165,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         let w = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 420, height: 380),
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 460),
             styleMask: [.titled, .closable],
             backing: .buffered, defer: false)
         w.isReleasedWhenClosed = false

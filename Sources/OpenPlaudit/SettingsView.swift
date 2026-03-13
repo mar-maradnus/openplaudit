@@ -153,6 +153,7 @@ struct SettingsView: View {
     private func restoreState() {
         do {
             try engine.state.restoreFromBackup()
+            engine.rebuildRecentRecordings()
             restoreMessage = "Restored successfully"
         } catch {
             restoreMessage = error.localizedDescription

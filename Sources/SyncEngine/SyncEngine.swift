@@ -63,10 +63,10 @@ public final class SyncEngine: ObservableObject {
         }
     }
 
-    /// Cancel an in-progress sync.
+    /// Cancel an in-progress sync. The task handle is cleared by the task's
+    /// own `defer` block once it has fully unwound, preventing overlap.
     public func cancelSync() {
         syncTask?.cancel()
-        syncTask = nil
         status = .idle
         log.info("Sync cancelled by user")
     }
@@ -344,8 +344,9 @@ public final class SyncEngine: ObservableObject {
         if recentRecordings.count > 10 { recentRecordings.removeLast() }
     }
 
-    /// Rebuild recent recordings from state.json and audio directory on launch.
-    private func rebuildRecentRecordings() {
+    /// Rebuild recent recordings from state.json and audio directory.
+    /// Called on launch and after state restore.
+    public func rebuildRecentRecordings() {
         let dirs = getOutputDirs(config)
         var recordings: [RecentRecording] = []
 
