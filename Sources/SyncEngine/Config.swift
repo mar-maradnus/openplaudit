@@ -103,10 +103,13 @@ public func loadConfigWithKeychain(from path: URL? = nil) -> AppConfig {
 }
 
 /// Save config to TOML (without the token) and store the token in Keychain.
+///
+/// Keychain operations run first. If they fail, the TOML write is skipped
+/// so that UI state and actual auth state cannot diverge.
 public func saveConfigWithKeychain(_ cfg: AppConfig, to path: URL? = nil) throws {
-    // Update Keychain: save new token, or delete if cleared
+    // Update Keychain first — abort entirely on failure
     if cfg.device.token.isEmpty {
-        KeychainHelper.delete(key: "device.token")
+        try KeychainHelper.delete(key: "device.token")
     } else {
         try KeychainHelper.save(key: "device.token", value: cfg.device.token)
     }

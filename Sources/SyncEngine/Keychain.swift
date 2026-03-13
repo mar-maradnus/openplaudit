@@ -49,23 +49,29 @@ public enum KeychainHelper {
         return String(data: data, encoding: .utf8)
     }
 
-    /// Delete a value from the Keychain.
-    public static func delete(key: String) {
+    /// Delete a value from the Keychain. Throws on failure (except "not found").
+    @discardableResult
+    public static func delete(key: String) throws -> Bool {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: key,
         ]
-        SecItemDelete(query as CFDictionary)
+        let status = SecItemDelete(query as CFDictionary)
+        if status == errSecSuccess { return true }
+        if status == errSecItemNotFound { return false }
+        throw KeychainError.deleteFailed(status)
     }
 }
 
 public enum KeychainError: Error, LocalizedError {
     case saveFailed(OSStatus)
+    case deleteFailed(OSStatus)
 
     public var errorDescription: String? {
         switch self {
         case .saveFailed(let s): return "Keychain save failed (status=\(s))"
+        case .deleteFailed(let s): return "Keychain delete failed (status=\(s))"
         }
     }
 }

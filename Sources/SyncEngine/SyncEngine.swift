@@ -47,11 +47,14 @@ public final class SyncEngine: ObservableObject {
         }
     }
 
-    /// Start a sync. If already syncing, does nothing.
+    /// Start a sync. Blocked while syncing or cancelling.
     public func startSync() {
         guard syncTask == nil else { return }
         syncTask = Task {
-            defer { syncTask = nil }
+            defer {
+                syncTask = nil
+                if status == .cancelling { status = .idle }
+            }
             do {
                 return try await runSync()
             } catch is CancellationError {
@@ -63,11 +66,12 @@ public final class SyncEngine: ObservableObject {
         }
     }
 
-    /// Cancel an in-progress sync. The task handle is cleared by the task's
-    /// own `defer` block once it has fully unwound, preventing overlap.
+    /// Cancel an in-progress sync. Sets status to `.cancelling` until the
+    /// task fully unwinds; `startSync()` is blocked until `syncTask` is nil.
     public func cancelSync() {
+        guard syncTask != nil else { return }
+        status = .cancelling
         syncTask?.cancel()
-        status = .idle
         log.info("Sync cancelled by user")
     }
 
@@ -82,6 +86,7 @@ public final class SyncEngine: ObservableObject {
         case idle
         case connecting
         case syncing(current: Int, total: Int)
+        case cancelling
         case error(String)
     }
 
@@ -327,8 +332,16 @@ public final class SyncEngine: ObservableObject {
     // MARK: - Config Persistence
 
     /// Save config to TOML (without token) and token to Keychain.
-    public func persistConfig() {
-        try? saveConfigWithKeychain(config)
+    /// Returns an error message on failure, nil on success.
+    @discardableResult
+    public func persistConfig() -> String? {
+        do {
+            try saveConfigWithKeychain(config)
+            return nil
+        } catch {
+            log.error("Config save failed: \(error.localizedDescription, privacy: .public)")
+            return error.localizedDescription
+        }
     }
 
     // MARK: - Helpers

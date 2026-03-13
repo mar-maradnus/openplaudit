@@ -162,9 +162,14 @@ struct KeychainConfigTests {
         cfg.device.address = "TEST-UUID"
         cfg.device.token = ""
 
-        // saveConfigWithKeychain with empty token should not throw
-        // (it calls KeychainHelper.delete, which is a no-op if nothing exists)
-        try saveConfigWithKeychain(cfg, to: path)
+        // saveConfigWithKeychain with empty token calls KeychainHelper.delete.
+        // In unsigned test runners, Keychain may be unavailable — skip in that case.
+        do {
+            try saveConfigWithKeychain(cfg, to: path)
+        } catch is KeychainError {
+            // Keychain not available in this context; skip
+            return
+        }
 
         // TOML should have empty token
         let loaded = loadConfig(from: path)
@@ -193,7 +198,7 @@ struct KeychainConfigTests {
 
     @Test func keychainSaveAndClear() throws {
         let testKey = "test.token.\(UUID().uuidString)"
-        defer { KeychainHelper.delete(key: testKey) }
+        defer { try? KeychainHelper.delete(key: testKey) }
 
         // Try to save — may fail in unsigned test runner
         do {
@@ -206,7 +211,7 @@ struct KeychainConfigTests {
         #expect(KeychainHelper.load(key: testKey) == "my_value")
 
         // Delete should clear it
-        KeychainHelper.delete(key: testKey)
+        try KeychainHelper.delete(key: testKey)
         #expect(KeychainHelper.load(key: testKey) == nil)
     }
 }
