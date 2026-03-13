@@ -168,6 +168,7 @@ public final class SyncEngine: ObservableObject {
         log.info("\(pending.count) session(s) to sync")
         var completedCount = 0
         var completedNames: [String] = []
+        var lastTranscriptPreview: String?
 
         for (index, session) in pending.enumerated() {
             try Task.checkCancellation()
@@ -257,6 +258,13 @@ public final class SyncEngine: ObservableObject {
                     state.markTranscribed(sid)
                     try state.saveAtomically()
 
+                    if config.notifications.showPreview {
+                        let text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !text.isEmpty {
+                            lastTranscriptPreview = String(text.prefix(100))
+                        }
+                    }
+
                     if config.sync.autoDeleteLocalAudio {
                         try? fm.removeItem(at: wavPath)
                     }
@@ -285,7 +293,8 @@ public final class SyncEngine: ObservableObject {
             } else {
                 body = "\(completedCount) recordings synced"
             }
-            sendNotification(title: "OpenPlaudit", body: body)
+            let subtitle = lastTranscriptPreview ?? ""
+            sendNotification(title: "OpenPlaudit", body: body, subtitle: subtitle)
         }
 
         log.info("Sync complete: \(completedCount) recording(s)")
