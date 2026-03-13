@@ -289,7 +289,7 @@ struct SettingsView: View {
 
     private func refreshMicDevices() {
         let discovery = AVCaptureDevice.DiscoverySession(
-            deviceTypes: [.builtInMicrophone, .externalUnknown],
+            deviceTypes: [.microphone, .external],
             mediaType: .audio,
             position: .unspecified
         )
