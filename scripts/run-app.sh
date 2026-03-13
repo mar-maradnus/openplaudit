@@ -29,7 +29,7 @@ cp Sources/OpenPlaudit/Resources/Info.plist "$CONTENTS/Info.plist"
 # Ad-hoc codesign with entitlements (BLE + mic)
 ENTITLEMENTS="$PROJECT_DIR/Sources/OpenPlaudit/Resources/OpenPlaudit.entitlements"
 echo "Codesigning with entitlements..."
-codesign --force --sign "OpenPlaudit Dev" --entitlements "$ENTITLEMENTS" "$MACOS/OpenPlaudit"
+codesign --force --sign "Developer ID Application: Ram Sundaram (4Z5DVBGQ95)" --entitlements "$ENTITLEMENTS" "$MACOS/OpenPlaudit"
 
 echo "Launching OpenPlaudit.app..."
 open "$APP_DIR"
