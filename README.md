@@ -33,16 +33,52 @@ swift build
 scripts/run-app.sh
 ```
 
+### Configuration
+
+After launch, a `♪` icon appears in the menubar. Click it and choose **Settings**.
+
+1. **Device tab** — enter your BLE device address (UUID) and binding token. The token is stored in the macOS Keychain, not in the config file.
+2. **Output tab** — change the output directory if desired (default: `~/Documents/OpenPlaudit`).
+3. **Transcription tab** — select the Whisper model (tiny → large, default: medium) and language. Models are downloaded on first use (~1.5 GB for medium).
+4. **Sync tab** — toggle auto-sync and set the interval (1–120 minutes). Toggle raw file retention, auto-delete after transcription, and notifications.
+
+Click **Save** in each tab to apply. To find your device UUID, use `plaude scan` from the CLI, or check Console.app for BLE discovery logs.
+
+### Usage
+
+- **Sync Now** — click in the menubar to start a manual sync. The icon changes during sync (`♪…` connecting, `♪↻` syncing) and the menu shows progress.
+- **Cancel Sync** — appears during sync. Cooperative cancellation; partial downloads are resumed on next sync.
+- **Auto-sync** — when enabled, syncs on the configured interval. Runs silently in the background.
+- **Recent recordings** — the menubar menu shows the last 5 recordings with date and duration.
+- **Notifications** — a summary notification is sent after each sync cycle (e.g. "3 recordings synced").
+- **State recovery** — if `state.json` becomes corrupted, go to Settings → Sync → "Restore State from Backup" to recover from the last known good state.
+- **About** — shows project information, privacy rationale, and firmware compatibility warning.
+- **Logging** — structured logs are available in Console.app (filter by `com.openplaudit.app`).
+
+### Troubleshooting
+
+Error messages in the menubar include actionable guidance:
+
+| Error | What to do |
+|-------|------------|
+| Bluetooth is off | Turn on Bluetooth in System Settings |
+| Bluetooth permission denied | System Settings → Privacy → Bluetooth → grant OpenPlaudit access |
+| Device not found | Ensure PLAUD Note is nearby, powered on, and not connected to another app |
+| Connection/handshake failed | Move closer to device; ensure it is not recording; check your token |
+| Transfer rejected | Ensure device is not recording |
+| Timeout / No response | Move closer or restart the device |
+| BLE service not found | Device may need a firmware update (note: updates may break OpenPlaudit) |
+
 ### Features
 
-- Background sync on a configurable interval (1-120 minutes)
+- Background sync on a configurable interval (1–120 minutes)
 - Local transcription via whisper.cpp with Metal acceleration on Apple Silicon
 - Secure token storage in macOS Keychain
-- Cancel in-progress syncs
+- Cancel in-progress syncs with cooperative cancellation
 - macOS notifications with optional transcript preview
 - Structured logging visible in Console.app
 - State recovery from corruption with rolling backups
-- Classified BLE error messages for troubleshooting
+- Classified BLE error messages with actionable troubleshooting guidance
 
 ### Requirements
 
@@ -163,11 +199,11 @@ The PLAUD Note requires a 32-character hex binding token for BLE authentication.
 # Python CLI tests (118 tests)
 pytest
 
-# Swift app tests (54 tests)
+# Swift app tests (68 tests)
 swift test
 ```
 
-Tests cover protocol serialisation, CRC, config, state tracking, Opus frame extraction, BLE transfer validation, CLI commands, sync orchestration, retry/resume, and BLE error classification. BLE integration is tested manually against the real device.
+Tests cover protocol serialisation, CRC, BLE error classification, config loading, state tracking with backup/recovery, Opus frame extraction, BLE transfer validation, CLI commands, sync orchestration, and retry/resume. BLE integration is tested manually against the real device.
 
 ## Project Structure
 
@@ -202,7 +238,7 @@ openplaudit/
   docs/                 — Protocol notes, token extraction guide
   llms.txt/             — LLM-friendly API references
   scripts/              — Build and run helpers
-  Tests/                — Python (118) and Swift (54) test suites
+  Tests/                — Python (118) and Swift (68) test suites
 ```
 
 ## Disclaimer

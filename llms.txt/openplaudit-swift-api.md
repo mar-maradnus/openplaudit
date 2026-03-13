@@ -2,11 +2,13 @@
 
 Native macOS menubar app for PLAUD Note. BLE sync, Opus decode, whisper.cpp transcription. Shares config/state with the Python CLI (`plaude`).
 
-## Package: `OpenPlaudit` (v0.2.0)
+## Package: `OpenPlaudit` (v0.2.1)
 
-Build: `swift build`. Run: `scripts/run-app.sh`. Requires macOS 14+, `brew install opus`.
+Build: `swift build`. Run: `scripts/run-app.sh`. Release: `scripts/build-release.sh` (produces `.app.zip`). Requires macOS 14+, `brew install opus`.
 
 SPM targets: `BLEKit`, `AudioKit`, `TranscriptionKit`, `SyncEngine`, `COpus` (system library), `OpenPlaudit` (app).
+
+Tests: 68 (BLE protocol + error classification, Opus decoder, session state + recovery, config).
 
 ---
 
@@ -157,6 +159,10 @@ engine.persistConfig()       // Save to TOML + Keychain
 
 Pipeline: download → decode → transcribe per session. State tracked in `SessionState`. Heavy work runs off-main via `Task.detached`. Cooperative cancellation via `Task.checkCancellation()`.
 
+BLE errors caught during connection are mapped to user-facing remediation messages (e.g. "Bluetooth is off — turn it on in System Settings") via an internal `remediation(for:)` method. Batch notifications: one summary per sync cycle rather than per-session.
+
+WAV duration is always sourced from `AVAudioFile` (authoritative) rather than byte arithmetic.
+
 ### Config.swift
 
 ```swift
@@ -189,7 +195,10 @@ state.reload()
 // Recovery
 state.hasBackup                          // Bool
 try state.restoreFromBackup()            // Restore from rolling backup
+// Throws StateError.backupNotFound if no backup exists
 ```
+
+Corrupt state files are quarantined with timestamps (`state.corrupt.YYYYMMDDTHHMMSS.json`, keeps 3). A rolling backup (`state.backup.json`) is created before every atomic write.
 
 ### Keychain.swift
 
