@@ -18,7 +18,7 @@ A native Swift menubar app that syncs PLAUD recordings and records meetings, all
 
 ### Install
 
-1. Download `OpenPlaudit.app.zip` from the [latest release](https://github.com/mar-maradnus/openplaudit/releases)
+1. Download `OpenPlaudit.app.zip` from the [latest release](https://github.com/mar-maradnus/openplaudit/releases) (macOS app only — the Python CLI is installed separately from source)
 2. Unzip and move `OpenPlaudit.app` to `/Applications`
 3. Right-click the app, then click Open (required once for unsigned apps)
 4. Configure your device address and token in Settings
@@ -108,7 +108,7 @@ Error messages in the menubar include actionable guidance:
 
 ## Python CLI
 
-A command-line tool for the same workflow, useful for scripting and automation.
+A command-line tool for the same PLAUD sync workflow, useful for scripting and automation. The CLI is not included in the GitHub release zip — install from source.
 
 ### Install
 
