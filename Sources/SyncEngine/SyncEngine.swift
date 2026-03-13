@@ -126,6 +126,9 @@ public final class SyncEngine: ObservableObject {
 
         do {
             try await client.connect()
+        } catch let error as BLEError {
+            status = .error(Self.remediation(for: error))
+            throw error
         } catch {
             status = .error("Connection failed: \(error.localizedDescription)")
             throw error
@@ -283,6 +286,36 @@ public final class SyncEngine: ObservableObject {
         log.info("Sync complete: \(completedCount) recording(s)")
         status = .idle
         return completedCount
+    }
+
+    /// User-facing remediation message for BLE errors.
+    private static func remediation(for error: BLEError) -> String {
+        switch error {
+        case .bluetoothOff:
+            return "Bluetooth is off — turn it on in System Settings"
+        case .bluetoothUnauthorized:
+            return "Bluetooth permission denied — grant access in System Settings > Privacy > Bluetooth"
+        case .deviceNotFound:
+            return "Device not found — ensure PLAUD Note is nearby, powered on, and not connected to another app"
+        case .connectionFailed:
+            return "Connection failed — try moving closer to the device and ensure it is not recording"
+        case .disconnected:
+            return "Device disconnected — try syncing again"
+        case .serviceNotFound:
+            return "BLE service not found — device may need a firmware update (note: updates may break OpenPlaudit)"
+        case .characteristicsNotFound:
+            return "Protocol mismatch — firmware may be incompatible with this version of OpenPlaudit"
+        case .handshakeFailed:
+            return "Authentication failed — check your binding token in Settings"
+        case .notConnected:
+            return "Not connected — try Sync Now"
+        case .timeout(let msg):
+            return "Timeout: \(msg) — try moving closer or restarting the device"
+        case .transferRejected(let s):
+            return "Transfer rejected (status=\(s)) — ensure device is not recording"
+        case .noResponse(let msg):
+            return "No response: \(msg) — device may be busy or out of range"
+        }
     }
 
     /// Get exact WAV duration via AVAudioFile; returns nil on failure.

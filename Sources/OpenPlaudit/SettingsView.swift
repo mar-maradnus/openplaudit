@@ -17,6 +17,7 @@ struct SettingsView: View {
     @State private var showPreview: Bool = true
     @State private var autoSyncEnabled: Bool = false
     @State private var autoSyncIntervalMinutes: Int = 30
+    @State private var restoreMessage: String?
 
     var body: some View {
         TabView {
@@ -88,6 +89,21 @@ struct SettingsView: View {
                 .disabled(!autoSyncEnabled)
 
             Button("Save") { saveConfig() }
+
+            Divider()
+
+            HStack {
+                Button("Restore State from Backup") { restoreState() }
+                    .disabled(!engine.state.hasBackup)
+                if let msg = restoreMessage {
+                    Text(msg)
+                        .font(.caption)
+                        .foregroundStyle(msg.contains("Restored") ? .green : .red)
+                }
+            }
+            Text("Recovers session tracking from the last known good state if the state file becomes corrupted.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .padding()
     }
@@ -131,6 +147,15 @@ struct SettingsView: View {
             engine.startAutoSync(intervalMinutes: autoSyncIntervalMinutes)
         } else {
             engine.stopAutoSync()
+        }
+    }
+
+    private func restoreState() {
+        do {
+            try engine.state.restoreFromBackup()
+            restoreMessage = "Restored successfully"
+        } catch {
+            restoreMessage = error.localizedDescription
         }
     }
 }
