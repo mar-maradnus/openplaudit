@@ -18,10 +18,32 @@ public final class SyncEngine: ObservableObject {
     public var config: AppConfig
 
     private var client: PlaudClient?
+    private var autoSyncTimer: Timer?
+    private var isSyncing = false
 
     public init(config: AppConfig = AppConfig(), statePath: URL = defaultStatePath) {
         self.config = config
         self.state = SessionState(path: statePath)
+    }
+
+    // MARK: - Auto-Sync
+
+    /// Start periodic auto-sync at the configured interval (minutes).
+    public func startAutoSync(intervalMinutes: Int = 30) {
+        stopAutoSync()
+        let interval = TimeInterval(max(intervalMinutes, 1) * 60)
+        autoSyncTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            Task { @MainActor in
+                guard !self.isSyncing else { return }
+                try? await self.runSync()
+            }
+        }
+    }
+
+    public func stopAutoSync() {
+        autoSyncTimer?.invalidate()
+        autoSyncTimer = nil
     }
 
     // MARK: - Sync Status
@@ -60,6 +82,8 @@ public final class SyncEngine: ObservableObject {
         try fm.createDirectory(at: dirs.transcripts, withIntermediateDirectories: true)
         try fm.createDirectory(at: dirs.raw, withIntermediateDirectories: true)
 
+        guard !isSyncing else { return 0 }
+        isSyncing = true
         status = .connecting
         let client = PlaudClient(address: config.device.address, token: config.device.token)
         self.client = client
@@ -67,6 +91,7 @@ public final class SyncEngine: ObservableObject {
         defer {
             Task { await client.disconnect() }
             self.client = nil
+            self.isSyncing = false
             status = .idle
         }
 
