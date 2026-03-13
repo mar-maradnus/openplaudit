@@ -37,6 +37,8 @@ public struct AppConfig: Equatable, Sendable {
     public struct SyncConfig: Equatable, Sendable {
         public var autoDeleteLocalAudio: Bool = false
         public var keepRaw: Bool = false
+        public var autoSyncEnabled: Bool = false
+        public var autoSyncIntervalMinutes: Int = 30
     }
 
     public struct NotificationConfig: Equatable, Sendable {
@@ -91,6 +93,27 @@ public func initConfig(at path: URL? = nil) throws -> URL {
     return url
 }
 
+/// Load config from TOML, then overlay the token from Keychain if available.
+public func loadConfigWithKeychain(from path: URL? = nil) -> AppConfig {
+    var cfg = loadConfig(from: path)
+    if let token = KeychainHelper.load(key: "device.token"), !token.isEmpty {
+        cfg.device.token = token
+    }
+    return cfg
+}
+
+/// Save config to TOML (without the token) and store the token in Keychain.
+public func saveConfigWithKeychain(_ cfg: AppConfig, to path: URL? = nil) throws {
+    // Save token to Keychain
+    if !cfg.device.token.isEmpty {
+        try KeychainHelper.save(key: "device.token", value: cfg.device.token)
+    }
+    // Save TOML without the token for CLI compatibility
+    var tomlCfg = cfg
+    tomlCfg.device.token = ""
+    try saveConfig(tomlCfg, to: path)
+}
+
 // MARK: - Output Directories
 
 public struct OutputDirs {
@@ -132,6 +155,8 @@ private func parseConfig(_ table: TOMLTable) -> AppConfig {
     if let sync = table["sync"]?.table {
         if let del = sync["auto_delete_local_audio"]?.bool { cfg.sync.autoDeleteLocalAudio = del }
         if let raw = sync["keep_raw"]?.bool { cfg.sync.keepRaw = raw }
+        if let autoSync = sync["auto_sync_enabled"]?.bool { cfg.sync.autoSyncEnabled = autoSync }
+        if let interval = sync["auto_sync_interval_minutes"]?.int { cfg.sync.autoSyncIntervalMinutes = interval }
     }
 
     if let notif = table["notifications"]?.table {
@@ -162,6 +187,8 @@ private func configToTOML(_ cfg: AppConfig) -> TOMLTable {
     let sync = TOMLTable()
     sync["auto_delete_local_audio"] = cfg.sync.autoDeleteLocalAudio
     sync["keep_raw"] = cfg.sync.keepRaw
+    sync["auto_sync_enabled"] = cfg.sync.autoSyncEnabled
+    sync["auto_sync_interval_minutes"] = cfg.sync.autoSyncIntervalMinutes
     table["sync"] = sync
 
     let notifications = TOMLTable()
@@ -218,6 +245,8 @@ public func setNested(_ cfg: inout AppConfig, key: String, value: String) throws
         switch name {
         case "auto_delete_local_audio": cfg.sync.autoDeleteLocalAudio = parseBool(value)
         case "keep_raw": cfg.sync.keepRaw = parseBool(value)
+        case "auto_sync_enabled": cfg.sync.autoSyncEnabled = parseBool(value)
+        case "auto_sync_interval_minutes": cfg.sync.autoSyncIntervalMinutes = Int(value) ?? 30
         default: throw ConfigError.unknownKey(key)
         }
     case "notifications":

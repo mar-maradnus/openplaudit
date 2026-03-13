@@ -2,6 +2,9 @@
 
 import Foundation
 import SwiftWhisper
+import os
+
+private let log = Logger(subsystem: "com.openplaudit.app", category: "transcription")
 
 /// Transcription result matching CLI JSON format.
 public struct TranscriptionResult: Codable, Sendable {
@@ -68,10 +71,10 @@ public final class Transcriber: @unchecked Sendable {
             throw TranscriptionError.unknownModel(modelName)
         }
 
-        print("Downloading whisper model '\(modelName)' (\(filename))...")
+        log.info("Downloading whisper model '\(self.modelName, privacy: .public)' (\(filename, privacy: .public))...")
         let (tempURL, _) = try await URLSession.shared.download(from: url)
         try fm.moveItem(at: tempURL, to: localPath)
-        print("Model downloaded to \(localPath.path)")
+        log.info("Model downloaded to \(localPath.path, privacy: .public)")
 
         return localPath
     }

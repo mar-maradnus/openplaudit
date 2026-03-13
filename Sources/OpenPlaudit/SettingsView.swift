@@ -15,6 +15,8 @@ struct SettingsView: View {
     @State private var autoDelete: Bool = false
     @State private var notificationsEnabled: Bool = true
     @State private var showPreview: Bool = true
+    @State private var autoSyncEnabled: Bool = false
+    @State private var autoSyncIntervalMinutes: Int = 30
 
     var body: some View {
         TabView {
@@ -30,7 +32,7 @@ struct SettingsView: View {
             syncTab
                 .tabItem { Label("Sync", systemImage: "arrow.triangle.2.circlepath") }
         }
-        .frame(width: 450, height: 250)
+        .frame(width: 450, height: 300)
         .onAppear { loadFromConfig() }
     }
 
@@ -77,6 +79,14 @@ struct SettingsView: View {
             Toggle("Auto-delete local audio after transcription", isOn: $autoDelete)
             Toggle("Notifications enabled", isOn: $notificationsEnabled)
             Toggle("Show transcript preview in notifications", isOn: $showPreview)
+
+            Divider()
+
+            Toggle("Auto-sync enabled", isOn: $autoSyncEnabled)
+            Stepper("Sync interval: \(autoSyncIntervalMinutes) min",
+                    value: $autoSyncIntervalMinutes, in: 1...120)
+                .disabled(!autoSyncEnabled)
+
             Button("Save") { saveConfig() }
         }
         .padding()
@@ -87,6 +97,7 @@ struct SettingsView: View {
     private func loadFromConfig() {
         let cfg = engine.config
         address = cfg.device.address
+        // Token comes from Keychain (already loaded into engine.config)
         token = cfg.device.token
         baseDir = cfg.output.baseDir
         model = cfg.transcription.model
@@ -95,6 +106,8 @@ struct SettingsView: View {
         autoDelete = cfg.sync.autoDeleteLocalAudio
         notificationsEnabled = cfg.notifications.enabled
         showPreview = cfg.notifications.showPreview
+        autoSyncEnabled = cfg.sync.autoSyncEnabled
+        autoSyncIntervalMinutes = cfg.sync.autoSyncIntervalMinutes
     }
 
     private func saveConfig() {
@@ -107,8 +120,17 @@ struct SettingsView: View {
         engine.config.sync.autoDeleteLocalAudio = autoDelete
         engine.config.notifications.enabled = notificationsEnabled
         engine.config.notifications.showPreview = showPreview
+        engine.config.sync.autoSyncEnabled = autoSyncEnabled
+        engine.config.sync.autoSyncIntervalMinutes = autoSyncIntervalMinutes
 
-        // Persist to TOML for CLI compatibility
+        // Persist to TOML (without token) + Keychain (token)
         engine.persistConfig()
+
+        // Apply auto-sync change immediately
+        if autoSyncEnabled {
+            engine.startAutoSync(intervalMinutes: autoSyncIntervalMinutes)
+        } else {
+            engine.stopAutoSync()
+        }
     }
 }

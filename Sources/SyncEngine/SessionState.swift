@@ -6,14 +6,18 @@
 /// Ported from Python CLI `src/plaude/state.py`.
 
 import Foundation
+import os
+
+private let log = Logger(subsystem: "com.openplaudit.app", category: "state")
 
 public let defaultStatePath: URL = {
     FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent(".local/share/openplaudit/state.json")
 }()
 
-/// Thread-safe state manager for session tracking.
-public final class SessionState: @unchecked Sendable {
+/// State manager for session tracking. All access must be from MainActor.
+@MainActor
+public final class SessionState {
     private let path: URL
     private var entries: [String: [String: String]]
 
@@ -33,10 +37,48 @@ public final class SessionState: @unchecked Sendable {
             let decoded = try JSONDecoder().decode([String: [String: String]].self, from: data)
             return decoded
         } catch {
-            // Quarantine the corrupt file
-            let backup = path.deletingPathExtension().appendingPathExtension("corrupt")
-            try? FileManager.default.moveItem(at: path, to: backup)
+            log.error("Corrupt state file at \(path.path, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            quarantine(path)
             return [:]
+        }
+    }
+
+    /// Move a corrupt file to a timestamped backup, keeping up to 3 backups.
+    private static func quarantine(_ path: URL) {
+        let fm = FileManager.default
+        let dir = path.deletingLastPathComponent()
+        let stem = path.deletingPathExtension().lastPathComponent
+
+        // Create timestamped backup name: state.corrupt.20260313T143022
+        let ts = ISO8601DateFormatter().string(from: Date())
+            .replacingOccurrences(of: ":", with: "")
+            .replacingOccurrences(of: "-", with: "")
+        let backupName = "\(stem).corrupt.\(ts).json"
+        let backupURL = dir.appendingPathComponent(backupName)
+
+        do {
+            try fm.moveItem(at: path, to: backupURL)
+            log.warning("Quarantined corrupt state to \(backupName, privacy: .public)")
+        } catch {
+            // Last resort: delete the corrupt file so we can start fresh
+            try? fm.removeItem(at: path)
+            log.error("Failed to quarantine, removed corrupt state file")
+        }
+
+        // Prune old backups: keep only the 3 most recent
+        pruneBackups(in: dir, stem: stem, keep: 3)
+    }
+
+    private static func pruneBackups(in dir: URL, stem: String, keep: Int) {
+        let fm = FileManager.default
+        guard let contents = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else { return }
+
+        let backups = contents
+            .filter { $0.lastPathComponent.hasPrefix("\(stem).corrupt.") }
+            .sorted { $0.lastPathComponent > $1.lastPathComponent }
+
+        for old in backups.dropFirst(keep) {
+            try? fm.removeItem(at: old)
         }
     }
 
@@ -50,7 +92,7 @@ public final class SessionState: @unchecked Sendable {
         try FileManager.default.moveItem(at: tmp, to: path)
     }
 
-    /// Save state atomically, writing to .tmp then renaming to final path.
+    /// Save state atomically, keeping a rolling backup of the previous good state.
     public func saveAtomically() throws {
         let dir = path.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -59,7 +101,14 @@ public final class SessionState: @unchecked Sendable {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(entries)
 
-        // Write directly to path with atomic option (handles tmp+rename internally)
+        // Keep a backup of the previous good state before overwriting
+        let fm = FileManager.default
+        if fm.fileExists(atPath: path.path) {
+            let backupPath = path.deletingPathExtension().appendingPathExtension("backup.json")
+            try? fm.removeItem(at: backupPath)
+            try? fm.copyItem(at: path, to: backupPath)
+        }
+
         try data.write(to: path, options: .atomic)
     }
 
@@ -142,6 +191,45 @@ public final class SessionState: @unchecked Sendable {
     /// Entry for a specific session.
     public func entry(for sessionID: UInt32) -> [String: String]? {
         entries[String(sessionID)]
+    }
+
+    // MARK: - Backup & Restore
+
+    /// The rolling backup URL (last known good state before the most recent save).
+    public var backupURL: URL {
+        path.deletingPathExtension().appendingPathExtension("backup.json")
+    }
+
+    /// Whether a rolling backup of last-good state exists.
+    public var hasBackup: Bool {
+        FileManager.default.fileExists(atPath: backupURL.path)
+    }
+
+    /// Restore state from the rolling backup (last known good state).
+    public func restoreFromBackup() throws {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: backupURL.path) else {
+            throw StateError.backupNotFound(backupURL.lastPathComponent)
+        }
+
+        let data = try Data(contentsOf: backupURL)
+        let restored = try JSONDecoder().decode([String: [String: String]].self, from: data)
+
+        entries = restored
+        try saveAtomically()
+        log.info("State restored from rolling backup")
+    }
+}
+
+// MARK: - State Errors
+
+public enum StateError: Error, LocalizedError {
+    case backupNotFound(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .backupNotFound(let name): return "Backup not found: \(name)"
+        }
     }
 }
 
