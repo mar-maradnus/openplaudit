@@ -104,8 +104,10 @@ public func loadConfigWithKeychain(from path: URL? = nil) -> AppConfig {
 
 /// Save config to TOML (without the token) and store the token in Keychain.
 public func saveConfigWithKeychain(_ cfg: AppConfig, to path: URL? = nil) throws {
-    // Save token to Keychain
-    if !cfg.device.token.isEmpty {
+    // Update Keychain: save new token, or delete if cleared
+    if cfg.device.token.isEmpty {
+        KeychainHelper.delete(key: "device.token")
+    } else {
         try KeychainHelper.save(key: "device.token", value: cfg.device.token)
     }
     // Save TOML without the token for CLI compatibility

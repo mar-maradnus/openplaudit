@@ -151,6 +151,66 @@ struct SetNestedTests {
     }
 }
 
+@Suite("saveConfigWithKeychain")
+struct KeychainConfigTests {
+    @Test func emptyTokenWritesEmptyToml() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let path = dir.appendingPathComponent("config.toml")
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        var cfg = AppConfig()
+        cfg.device.address = "TEST-UUID"
+        cfg.device.token = ""
+
+        // saveConfigWithKeychain with empty token should not throw
+        // (it calls KeychainHelper.delete, which is a no-op if nothing exists)
+        try saveConfigWithKeychain(cfg, to: path)
+
+        // TOML should have empty token
+        let loaded = loadConfig(from: path)
+        #expect(loaded.device.token == "")
+        #expect(loaded.device.address == "TEST-UUID")
+    }
+
+    @Test func tomlNeverContainsToken() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let path = dir.appendingPathComponent("config.toml")
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        var cfg = AppConfig()
+        cfg.device.token = "secret_token_value"
+        // This may fail to write to Keychain in unsigned test runner — that's OK,
+        // we're testing the TOML side: token must never appear in the file.
+        try? saveConfigWithKeychain(cfg, to: path)
+
+        let tomlText = try String(contentsOf: path, encoding: .utf8)
+        #expect(!tomlText.contains("secret_token_value"))
+
+        // TOML-only load should have empty token
+        let loaded = loadConfig(from: path)
+        #expect(loaded.device.token == "")
+    }
+
+    @Test func keychainSaveAndClear() throws {
+        let testKey = "test.token.\(UUID().uuidString)"
+        defer { KeychainHelper.delete(key: testKey) }
+
+        // Try to save — may fail in unsigned test runner
+        do {
+            try KeychainHelper.save(key: testKey, value: "my_value")
+        } catch {
+            // Keychain not available in this context (unsigned test binary); skip
+            return
+        }
+
+        #expect(KeychainHelper.load(key: testKey) == "my_value")
+
+        // Delete should clear it
+        KeychainHelper.delete(key: testKey)
+        #expect(KeychainHelper.load(key: testKey) == nil)
+    }
+}
+
 @Suite("getOutputDirs")
 struct OutputDirsTests {
     @Test func expectedSubdirs() {
