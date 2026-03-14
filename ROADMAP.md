@@ -153,6 +153,12 @@ Queryable without Console.app — the export diagnostics button includes this fi
 
 ---
 
+## v0.5.2 — Commercial Infrastructure
+
+License key validation, auto-updates via Sparkle, and direct distribution outside the App Store.
+
+---
+
 ## v0.6.0 — Mind Maps + Ask AI
 
 ### Mind Maps
@@ -262,9 +268,7 @@ A lightweight recording app that replaces the PLAUD device entirely. No hardware
 ## Backlog
 
 - **Export formats** — PDF, DOCX, SRT subtitle export from transcripts
-- **Batch re-summarise** — apply a new template to existing transcripts
 - **Keyboard shortcuts** — global hotkeys for recording start/stop
-- **Auto-update** — Sparkle framework for in-app update checks
 - **System audio standalone** — capture system audio without targeting a specific app
 - **Other hardware** — USB mass storage voice recorders, other BLE devices
 - **Rename** — consider renaming the project to reflect broader scope beyond PLAUD

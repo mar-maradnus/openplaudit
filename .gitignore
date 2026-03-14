@@ -22,3 +22,6 @@ DerivedData/
 # Generated artifacts
 *.docx
 *.corrupt
+
+# Private documents
+COMMERCIAL-STRATEGY.md
