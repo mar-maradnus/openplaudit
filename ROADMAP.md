@@ -157,12 +157,19 @@ Queryable without Console.app — the export diagnostics button includes this fi
 
 ### Mind Maps
 
-LLM generates a structured hierarchical outline from the transcript/summary. Exported as:
-- Mermaid diagram (rendered in transcript viewer)
-- OPML (importable into mind map tools)
-- Markdown outline
+LLM generates a structured hierarchical outline from the transcript/summary. The LLM produces a structured outline (its natural output); code mechanically converts that to each export format.
 
-Stored in transcript JSON as a `mindmap` field.
+**Export formats:**
+
+| Format | Purpose | Viewer |
+|--------|---------|--------|
+| **Draw.io** (.drawio) | Primary — editable, rich tree/radial layout | draw.io desktop app, VS Code extension, diagrams.net |
+| **OPML** | Import into dedicated mind map tools | MindNode, XMind, iThoughts |
+| **Markdown outline** | Lightweight, inline in transcript JSON | Any text editor |
+
+Draw.io is the primary format because users can rearrange nodes, add branches, and restyle after generation — something static renderers like Mermaid cannot offer. The .drawio XML is generated mechanically from the LLM's structured outline using mxGraph templates, not by asking the LLM to produce XML.
+
+Stored in transcript JSON as a `mindmap` field (markdown outline). Draw.io and OPML files saved alongside the transcript in the output directory.
 
 ### Ask AI — Chat With Your Transcript
 
