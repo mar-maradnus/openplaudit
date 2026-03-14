@@ -250,6 +250,41 @@ struct DiarizationConfigTests {
     }
 }
 
+@Suite("Summarisation config")
+struct SummarisationConfigTests {
+    @Test func summarisationDefaultsOff() {
+        let cfg = AppConfig()
+        #expect(cfg.summarisation.enabled == false)
+        #expect(cfg.summarisation.model == "qwen2.5:3b")
+        #expect(cfg.summarisation.defaultTemplate == "key_points")
+    }
+
+    @Test func summarisationRoundtrip() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let path = dir.appendingPathComponent("config.toml")
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        var cfg = AppConfig()
+        cfg.summarisation.enabled = true
+        cfg.summarisation.model = "phi3:mini"
+        cfg.summarisation.defaultTemplate = "meeting_minutes"
+        try saveConfig(cfg, to: path)
+
+        let loaded = loadConfig(from: path)
+        #expect(loaded.summarisation.enabled == true)
+        #expect(loaded.summarisation.model == "phi3:mini")
+        #expect(loaded.summarisation.defaultTemplate == "meeting_minutes")
+    }
+
+    @Test func setNestedSummarisation() throws {
+        var cfg = AppConfig()
+        try setNested(&cfg, key: "summarisation.enabled", value: "true")
+        #expect(cfg.summarisation.enabled == true)
+        try setNested(&cfg, key: "summarisation.model", value: "llama3")
+        #expect(cfg.summarisation.model == "llama3")
+    }
+}
+
 @Suite("getOutputDirs")
 struct OutputDirsTests {
     @Test func expectedSubdirs() {

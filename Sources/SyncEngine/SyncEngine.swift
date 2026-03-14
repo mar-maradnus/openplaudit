@@ -8,6 +8,7 @@ import BLEKit
 import AudioKit
 import TranscriptionKit
 import DiarizationKit
+import SummarisationKit
 import os
 
 private let log = Logger(subsystem: "com.openplaudit.app", category: "sync")
@@ -266,6 +267,16 @@ public final class SyncEngine: ObservableObject {
                         }.value
                     }
 
+                    // Summarisation: generate summary from transcript
+                    if config.summarisation.enabled {
+                        log.info("Summarising session \(sid)")
+                        let summCfg = config.summarisation
+                        let currentResult = result
+                        if let summary = try? await Self.applySummarisation(to: currentResult, config: summCfg) {
+                            result.summary = summary
+                        }
+                    }
+
                     let jsonPath = dirs.transcripts.appendingPathComponent("\(fname).json")
                     let encoder = JSONEncoder()
                     encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -372,6 +383,16 @@ public final class SyncEngine: ObservableObject {
         )
         updatedResult.speakers = diaResult.speakers
         return updatedResult
+    }
+
+    /// Run summarisation on a transcription result.
+    public static func applySummarisation(to result: TranscriptionResult, config: AppConfig.SummarisationConfig) async throws -> TranscriptionResult.TranscriptSummary {
+        let backend = OllamaBackend(model: config.model, baseURL: URL(string: config.ollamaURL)!)
+        let summariser = Summariser(backend: backend)
+        let tuples = result.segments.map { (start: $0.start, end: $0.end, text: $0.text, speaker: $0.speaker) }
+        let formatted = Summariser.formatTranscriptForSummary(segments: tuples)
+        let summaryResult = try await summariser.summarise(transcript: formatted, templateID: config.defaultTemplate)
+        return TranscriptionResult.TranscriptSummary(template: summaryResult.template, model: summaryResult.model, content: summaryResult.content)
     }
 
     /// Get exact WAV duration via AVAudioFile; returns nil on failure.

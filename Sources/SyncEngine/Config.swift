@@ -21,6 +21,7 @@ public struct AppConfig: Equatable, Sendable {
     public var notifications = NotificationConfig()
     public var meeting = MeetingConfig()
     public var diarization = DiarizationConfig()
+    public var summarisation = SummarisationConfig()
 
     public struct DeviceConfig: Equatable, Sendable {
         public var address: String = ""
@@ -52,6 +53,13 @@ public struct AppConfig: Equatable, Sendable {
     public struct DiarizationConfig: Equatable, Sendable {
         public var enabled: Bool = false
         public var maxSpeakers: Int = 6
+    }
+
+    public struct SummarisationConfig: Equatable, Sendable {
+        public var enabled: Bool = false
+        public var model: String = "qwen2.5:3b"
+        public var defaultTemplate: String = "key_points"
+        public var ollamaURL: String = "http://localhost:11434"
     }
 
     public struct MeetingConfig: Equatable, Sendable {
@@ -207,6 +215,13 @@ private func parseConfig(_ table: TOMLTable) -> AppConfig {
         if let ms = diar["max_speakers"]?.int { cfg.diarization.maxSpeakers = ms }
     }
 
+    if let summ = table["summarisation"]?.table {
+        if let en = summ["enabled"]?.bool { cfg.summarisation.enabled = en }
+        if let model = summ["model"]?.string { cfg.summarisation.model = model }
+        if let tmpl = summ["default_template"]?.string { cfg.summarisation.defaultTemplate = tmpl }
+        if let url = summ["ollama_url"]?.string { cfg.summarisation.ollamaURL = url }
+    }
+
     if let meeting = table["meeting"]?.table {
         if let en = meeting["enabled"]?.bool { cfg.meeting.enabled = en }
         if let ar = meeting["auto_record"]?.bool { cfg.meeting.autoRecord = ar }
@@ -255,6 +270,13 @@ private func configToTOML(_ cfg: AppConfig) -> TOMLTable {
     diarization["enabled"] = cfg.diarization.enabled
     diarization["max_speakers"] = cfg.diarization.maxSpeakers
     table["diarization"] = diarization
+
+    let summarisation = TOMLTable()
+    summarisation["enabled"] = cfg.summarisation.enabled
+    summarisation["model"] = cfg.summarisation.model
+    summarisation["default_template"] = cfg.summarisation.defaultTemplate
+    summarisation["ollama_url"] = cfg.summarisation.ollamaURL
+    table["summarisation"] = summarisation
 
     let meeting = TOMLTable()
     meeting["enabled"] = cfg.meeting.enabled
@@ -330,6 +352,14 @@ public func setNested(_ cfg: inout AppConfig, key: String, value: String) throws
         switch name {
         case "enabled": cfg.diarization.enabled = parseBool(value)
         case "max_speakers": cfg.diarization.maxSpeakers = Int(value) ?? 6
+        default: throw ConfigError.unknownKey(key)
+        }
+    case "summarisation":
+        switch name {
+        case "enabled": cfg.summarisation.enabled = parseBool(value)
+        case "model": cfg.summarisation.model = value
+        case "default_template": cfg.summarisation.defaultTemplate = value
+        case "ollama_url": cfg.summarisation.ollamaURL = value
         default: throw ConfigError.unknownKey(key)
         }
     case "meeting":

@@ -38,7 +38,7 @@ let package = Package(
         ),
         .target(
             name: "SyncEngine",
-            dependencies: ["BLEKit", "AudioKit", "TOMLKit", "TranscriptionKit", "DiarizationKit"],
+            dependencies: ["BLEKit", "AudioKit", "TOMLKit", "TranscriptionKit", "DiarizationKit", "SummarisationKit"],
             path: "Sources/SyncEngine",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
@@ -49,13 +49,13 @@ let package = Package(
         ),
         .target(
             name: "MeetingKit",
-            dependencies: ["SyncEngine", "TranscriptionKit", "DiarizationKit"],
+            dependencies: ["SyncEngine", "TranscriptionKit", "DiarizationKit", "SummarisationKit"],
             path: "Sources/MeetingKit",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .target(
             name: "ImportKit",
-            dependencies: ["AudioKit", "SyncEngine", "TranscriptionKit", "DiarizationKit"],
+            dependencies: ["AudioKit", "SyncEngine", "TranscriptionKit", "DiarizationKit", "SummarisationKit"],
             path: "Sources/ImportKit",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
@@ -65,11 +65,16 @@ let package = Package(
             path: "Sources/DiarizationKit",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
+        .target(
+            name: "SummarisationKit",
+            path: "Sources/SummarisationKit",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
 
         // --- App ---
         .executableTarget(
             name: "OpenPlaudit",
-            dependencies: ["BLEKit", "AudioKit", "SyncEngine", "TranscriptionKit", "MeetingKit", "ImportKit", "DiarizationKit"],
+            dependencies: ["BLEKit", "AudioKit", "SyncEngine", "TranscriptionKit", "MeetingKit", "ImportKit", "DiarizationKit", "SummarisationKit"],
             path: "Sources/OpenPlaudit",
             exclude: ["Resources/Info.plist", "Resources/OpenPlaudit.entitlements"],
             swiftSettings: [.swiftLanguageMode(.v5)]
@@ -105,6 +110,11 @@ let package = Package(
             name: "DiarizationKitTests",
             dependencies: ["DiarizationKit", "TranscriptionKit", .product(name: "Testing", package: "swift-testing")],
             path: "Tests/DiarizationKitTests"
+        ),
+        .testTarget(
+            name: "SummarisationKitTests",
+            dependencies: ["SummarisationKit", .product(name: "Testing", package: "swift-testing")],
+            path: "Tests/SummarisationKitTests"
         ),
     ]
 )
