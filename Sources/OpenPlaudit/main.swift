@@ -12,6 +12,8 @@ import SyncEngine
 import TranscriptionKit
 import ImportKit
 import MeetingKit
+import DiarizationKit
+import SummarisationKit
 import UniformTypeIdentifiers
 import os
 
@@ -22,6 +24,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var engine: SyncEngine!
     var meetingEngine: MeetingEngine!
     var importEngine: ImportEngine!
+    private var micRecorder: MicRecorder?
+    private var micRecordingStartTime: Date?
+    private var micDurationTimer: Timer?
     private var settingsWindow: NSWindow?
     private var aboutWindow: NSWindow?
     private var cancellables: Set<AnyCancellable> = []
@@ -37,6 +42,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let meetingRecordTag = 401
     private let meetingStatusTag = 402
     private let importTag = 500
+    private let micRecordTag = 600
+    private let micStatusTag = 601
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Install a standard Edit menu so Cmd+V paste works in text fields.
@@ -129,6 +136,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let importItem = NSMenuItem(title: "Import Audio File…", action: #selector(importAudioFile), keyEquivalent: "i")
         importItem.tag = importTag
         menu.addItem(importItem)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let micRecordItem = NSMenuItem(title: "Record from Microphone", action: #selector(toggleMicRecording), keyEquivalent: "r")
+        micRecordItem.tag = micRecordTag
+        menu.addItem(micRecordItem)
+
+        let micStatusLine = NSMenuItem(title: "Mic: Idle", action: nil, keyEquivalent: "")
+        micStatusLine.isEnabled = false
+        micStatusLine.tag = micStatusTag
+        menu.addItem(micStatusLine)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -277,6 +295,101 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.importEngine.importFiles(urls)
             }
         }
+    }
+
+    @objc func toggleMicRecording() {
+        if micRecorder != nil {
+            stopMicRecording()
+        } else {
+            startMicRecording()
+        }
+    }
+
+    private func startMicRecording() {
+        let cfg = MainActor.assumeIsolated { engine.config }
+        let dirs = getOutputDirs(cfg)
+        let micDir = dirs.base.appendingPathComponent("mic/audio")
+        let recorder = MicRecorder(outputDir: micDir)
+        do {
+            try recorder.start(micDeviceID: cfg.meeting.micDeviceID)
+            micRecorder = recorder
+            micRecordingStartTime = Date()
+            updateMicMenuItems(recording: true)
+            startMicDurationTimer()
+        } catch {
+            log.error("Mic recording failed: \(error.localizedDescription, privacy: .public)")
+            if let menu = statusItem.menu, let statusLine = menu.item(withTag: micStatusTag) {
+                statusLine.title = "Mic: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    private func stopMicRecording() {
+        guard let recorder = micRecorder else { return }
+        stopMicDurationTimer()
+
+        do {
+            let recording = try recorder.stop()
+            micRecorder = nil
+            updateMicMenuItems(recording: false)
+
+            // Transcribe (and optionally diarize + summarise) in background
+            Task { @MainActor in
+                if let menu = statusItem.menu, let statusLine = menu.item(withTag: micStatusTag) {
+                    statusLine.title = "Mic: Transcribing…"
+                }
+
+                importEngine.importFiles([recording.wavPath])
+
+                if let menu = statusItem.menu, let statusLine = menu.item(withTag: micStatusTag) {
+                    statusLine.title = "Mic: Idle"
+                }
+            }
+        } catch {
+            micRecorder = nil
+            updateMicMenuItems(recording: false)
+            log.error("Mic stop failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func updateMicMenuItems(recording: Bool) {
+        guard let menu = statusItem.menu else { return }
+        let recordButton = menu.item(withTag: micRecordTag)
+        let statusLine = menu.item(withTag: micStatusTag)
+
+        if recording {
+            recordButton?.title = "Stop Mic Recording"
+            statusLine?.title = "Mic: Recording…"
+            setMenuBarIcon("mic.fill", description: "OpenPlaudit — Recording")
+        } else {
+            recordButton?.title = "Record from Microphone"
+            statusLine?.title = "Mic: Idle"
+            let syncStatus = MainActor.assumeIsolated { engine.status }
+            if case .idle = syncStatus {
+                let connected = MainActor.assumeIsolated { engine.isConnected }
+                setMenuBarIcon(connected ? "waveform.circle.fill" : "waveform",
+                              description: connected ? "OpenPlaudit — Connected" : "OpenPlaudit")
+            }
+        }
+    }
+
+    private func startMicDurationTimer() {
+        stopMicDurationTimer()
+        micDurationTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            guard let self,
+                  let start = self.micRecordingStartTime,
+                  let menu = self.statusItem.menu,
+                  let recordButton = menu.item(withTag: self.micRecordTag) else { return }
+            let elapsed = Date().timeIntervalSince(start)
+            let mins = Int(elapsed) / 60
+            let secs = Int(elapsed) % 60
+            recordButton.title = String(format: "Stop Mic Recording (%d:%02d)", mins, secs)
+        }
+    }
+
+    private func stopMicDurationTimer() {
+        micDurationTimer?.invalidate()
+        micDurationTimer = nil
     }
 
     @objc func toggleMeetingRecording() {

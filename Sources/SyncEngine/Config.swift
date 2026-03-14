@@ -160,12 +160,15 @@ public struct OutputDirs {
     public let meetingTranscripts: URL
     public let importAudio: URL
     public let importTranscripts: URL
+    public let micAudio: URL
+    public let micTranscripts: URL
 }
 
 public func getOutputDirs(_ cfg: AppConfig) -> OutputDirs {
     let base = URL(fileURLWithPath: NSString(string: cfg.output.baseDir).expandingTildeInPath)
     let meetings = base.appendingPathComponent("meetings")
     let imports = base.appendingPathComponent("imports")
+    let mic = base.appendingPathComponent("mic")
     return OutputDirs(
         base: base,
         audio: base.appendingPathComponent("audio"),
@@ -174,7 +177,9 @@ public func getOutputDirs(_ cfg: AppConfig) -> OutputDirs {
         meetingAudio: meetings.appendingPathComponent("audio"),
         meetingTranscripts: meetings.appendingPathComponent("transcripts"),
         importAudio: imports.appendingPathComponent("audio"),
-        importTranscripts: imports.appendingPathComponent("transcripts")
+        importTranscripts: imports.appendingPathComponent("transcripts"),
+        micAudio: mic.appendingPathComponent("audio"),
+        micTranscripts: mic.appendingPathComponent("transcripts")
     )
 }
 
