@@ -171,7 +171,7 @@ Name a speaker once; OpenPlaudit recognises them in future recordings across all
 
 Eliminate the token extraction process entirely. OpenPlaudit handles device binding directly over BLE.
 
-**Approach:** Capture the factory-reset BLE binding protocol using an nRF52840 sniffer dongle (Raytac MDBT50Q-CX, on order, expected ~2026-04-03). Reverse-engineer the pairing handshake and replicate it in `BLEKit`.
+**Approach:** Capture the factory-reset BLE binding protocol using an nRF52840 sniffer dongle. Reverse-engineer the pairing handshake and replicate it in `BLEKit`.
 
 **User flow:**
 1. Factory reset the PLAUD Note
@@ -183,13 +183,51 @@ Eliminate the token extraction process entirely. OpenPlaudit handles device bind
 
 ---
 
+## v0.9.0 — iPhone Companion App
+
+### Privacy-First Voice Recorder for iPhone
+
+A lightweight recording app that replaces the PLAUD device entirely. No hardware purchase needed — just an iPhone.
+
+**Philosophy:** The iPhone app is a stub recorder, not a processing engine. It captures high-quality audio and syncs to the macOS app, where transcription, diarization, and summarisation happen. This keeps the iPhone app fast, battery-efficient, and simple.
+
+**Recording:**
+- One-tap recording from the app, Lock Screen Live Activity, or Action Button (iPhone 15+)
+- Background audio recording via `audio` background mode
+- Multi-microphone capture with beamforming (iPhone has 3-4 mics vs PLAUD's 2)
+- Configurable audio quality (16kHz mono for voice, 48kHz stereo for music/ambience)
+
+**Sync to Mac:**
+- Automatic sync over local network (Bonjour/mDNS) when both devices are on the same Wi-Fi
+- iCloud Drive as a fallback for remote sync
+- Recordings appear in the macOS app's unified "Recent Recordings" list with an iPhone source icon
+- Sync is one-way: audio goes to Mac, transcripts come back to iPhone for viewing
+
+**iPhone UI:**
+- Minimal: record button, recording list, transcript viewer (read-only, synced from Mac)
+- No transcription, diarization, or summarisation on-device
+- Recordings show status: "Synced", "Pending sync", "Transcribed"
+
+**Better than Voice Memos:**
+- Purpose-built for voice capture with speaker-aware settings
+- Structured output (not just a raw audio file buried in iCloud)
+- Integrates with the full AI pipeline on Mac
+- Meeting-aware: can detect calendar events and prompt to record
+
+**Better than PLAUD Note:**
+- No $160 hardware, no BLE pairing, no token extraction
+- Better microphones with beamforming
+- Instant sync over Wi-Fi (vs slow BLE transfer)
+- Always with you — it's your phone
+
+---
+
 ## Backlog
 
 - **Export formats** — PDF, DOCX, SRT subtitle export from transcripts
 - **Batch re-summarise** — apply a new template to existing transcripts
 - **Keyboard shortcuts** — global hotkeys for recording start/stop
 - **Auto-update** — Sparkle framework for in-app update checks
-- **iOS companion** — share transcripts via iCloud or local network
 - **System audio standalone** — capture system audio without targeting a specific app
 - **Other hardware** — USB mass storage voice recorders, other BLE devices
 - **Rename** — consider renaming the project to reflect broader scope beyond PLAUD
