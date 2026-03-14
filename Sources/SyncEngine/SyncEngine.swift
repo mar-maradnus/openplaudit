@@ -9,6 +9,7 @@ import AudioKit
 import TranscriptionKit
 import DiarizationKit
 import SummarisationKit
+import MindMapKit
 import os
 
 private let log = Logger(subsystem: "com.openplaudit.app", category: "sync")
@@ -277,6 +278,20 @@ public final class SyncEngine: ObservableObject {
                         let currentResult = result
                         if let summary = try? await Self.applySummarisation(to: currentResult, config: summCfg) {
                             result.summary = summary
+                        }
+                    }
+
+                    // Mind map generation
+                    if config.summarisation.enabled {
+                        let summCfg = config.summarisation
+                        let tuples = result.segments.map { (start: $0.start, end: $0.end, text: $0.text, speaker: $0.speaker) }
+                        let formatted = Summariser.formatTranscriptForSummary(segments: tuples)
+                        let backend = OllamaBackend(model: summCfg.model, baseURL: URL(string: summCfg.ollamaURL)!)
+                        if let (mmResult, _) = try? await MindMapGenerator.generateAndExport(
+                            transcript: formatted, backend: backend,
+                            outputDir: dirs.transcripts, baseName: fname
+                        ) {
+                            result.mindmap = mmResult.markdown
                         }
                     }
 

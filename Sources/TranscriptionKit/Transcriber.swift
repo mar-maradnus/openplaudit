@@ -17,6 +17,7 @@ public struct TranscriptionResult: Codable, Sendable {
     public let text: String
     public var speakers: [String]?
     public var summary: TranscriptSummary?
+    public var mindmap: String?
 
     /// Summary attached to a transcript by the summarisation pipeline.
     public struct TranscriptSummary: Codable, Sendable {
@@ -38,7 +39,7 @@ public struct TranscriptionResult: Codable, Sendable {
         public var speaker: String?
     }
 
-    public init(file: String, durationSeconds: Double, model: String, language: String, segments: [Segment], text: String, speakers: [String]? = nil, summary: TranscriptSummary? = nil) {
+    public init(file: String, durationSeconds: Double, model: String, language: String, segments: [Segment], text: String, speakers: [String]? = nil, summary: TranscriptSummary? = nil, mindmap: String? = nil) {
         self.file = file
         self.durationSeconds = durationSeconds
         self.model = model
@@ -47,12 +48,13 @@ public struct TranscriptionResult: Codable, Sendable {
         self.text = text
         self.speakers = speakers
         self.summary = summary
+        self.mindmap = mindmap
     }
 
     enum CodingKeys: String, CodingKey {
         case file
         case durationSeconds = "duration_seconds"
-        case model, language, segments, text, speakers, summary
+        case model, language, segments, text, speakers, summary, mindmap
     }
 }
 

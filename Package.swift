@@ -38,7 +38,7 @@ let package = Package(
         ),
         .target(
             name: "SyncEngine",
-            dependencies: ["BLEKit", "AudioKit", "TOMLKit", "TranscriptionKit", "DiarizationKit", "SummarisationKit"],
+            dependencies: ["BLEKit", "AudioKit", "TOMLKit", "TranscriptionKit", "DiarizationKit", "SummarisationKit", "MindMapKit"],
             path: "Sources/SyncEngine",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
@@ -49,13 +49,13 @@ let package = Package(
         ),
         .target(
             name: "MeetingKit",
-            dependencies: ["SyncEngine", "TranscriptionKit", "DiarizationKit", "SummarisationKit"],
+            dependencies: ["SyncEngine", "TranscriptionKit", "DiarizationKit", "SummarisationKit", "MindMapKit"],
             path: "Sources/MeetingKit",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .target(
             name: "ImportKit",
-            dependencies: ["AudioKit", "SyncEngine", "TranscriptionKit", "DiarizationKit", "SummarisationKit"],
+            dependencies: ["AudioKit", "SyncEngine", "TranscriptionKit", "DiarizationKit", "SummarisationKit", "MindMapKit"],
             path: "Sources/ImportKit",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
@@ -70,11 +70,17 @@ let package = Package(
             path: "Sources/SummarisationKit",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
+        .target(
+            name: "MindMapKit",
+            dependencies: ["SummarisationKit"],
+            path: "Sources/MindMapKit",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
 
         // --- App ---
         .executableTarget(
             name: "OpenPlaudit",
-            dependencies: ["BLEKit", "AudioKit", "SyncEngine", "TranscriptionKit", "MeetingKit", "ImportKit", "DiarizationKit", "SummarisationKit"],
+            dependencies: ["BLEKit", "AudioKit", "SyncEngine", "TranscriptionKit", "MeetingKit", "ImportKit", "DiarizationKit", "SummarisationKit", "MindMapKit"],
             path: "Sources/OpenPlaudit",
             exclude: ["Resources/Info.plist", "Resources/OpenPlaudit.entitlements"],
             swiftSettings: [.swiftLanguageMode(.v5)]
@@ -115,6 +121,11 @@ let package = Package(
             name: "SummarisationKitTests",
             dependencies: ["SummarisationKit", .product(name: "Testing", package: "swift-testing")],
             path: "Tests/SummarisationKitTests"
+        ),
+        .testTarget(
+            name: "MindMapKitTests",
+            dependencies: ["MindMapKit", .product(name: "Testing", package: "swift-testing")],
+            path: "Tests/MindMapKitTests"
         ),
     ]
 )
