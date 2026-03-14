@@ -7,6 +7,7 @@ import os
 private let log = Logger(subsystem: "com.openplaudit.app", category: "transcription")
 
 /// Transcription result matching CLI JSON format.
+/// Speaker field is optional — nil when diarization is disabled.
 public struct TranscriptionResult: Codable, Sendable {
     public let file: String
     public let durationSeconds: Double
@@ -14,17 +15,19 @@ public struct TranscriptionResult: Codable, Sendable {
     public let language: String
     public let segments: [Segment]
     public let text: String
+    public var speakers: [String]?
 
     public struct Segment: Codable, Sendable {
         public let start: Double
         public let end: Double
         public let text: String
+        public var speaker: String?
     }
 
     enum CodingKeys: String, CodingKey {
         case file
         case durationSeconds = "duration_seconds"
-        case model, language, segments, text
+        case model, language, segments, text, speakers
     }
 }
 

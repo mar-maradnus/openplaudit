@@ -59,11 +59,17 @@ let package = Package(
             path: "Sources/ImportKit",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
+        .target(
+            name: "DiarizationKit",
+            dependencies: ["TranscriptionKit"],
+            path: "Sources/DiarizationKit",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
 
         // --- App ---
         .executableTarget(
             name: "OpenPlaudit",
-            dependencies: ["BLEKit", "AudioKit", "SyncEngine", "TranscriptionKit", "MeetingKit", "ImportKit"],
+            dependencies: ["BLEKit", "AudioKit", "SyncEngine", "TranscriptionKit", "MeetingKit", "ImportKit", "DiarizationKit"],
             path: "Sources/OpenPlaudit",
             exclude: ["Resources/Info.plist", "Resources/OpenPlaudit.entitlements"],
             swiftSettings: [.swiftLanguageMode(.v5)]
@@ -94,6 +100,11 @@ let package = Package(
             name: "ImportKitTests",
             dependencies: ["ImportKit", "SyncEngine", .product(name: "Testing", package: "swift-testing")],
             path: "Tests/ImportKitTests"
+        ),
+        .testTarget(
+            name: "DiarizationKitTests",
+            dependencies: ["DiarizationKit", "TranscriptionKit", .product(name: "Testing", package: "swift-testing")],
+            path: "Tests/DiarizationKitTests"
         ),
     ]
 )
