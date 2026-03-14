@@ -123,6 +123,36 @@ LLM-powered summaries using bundled llama.cpp — no Ollama, MLX, or external ru
 
 ---
 
+## v0.5.1 — Local Diagnostics
+
+Error tracing and diagnostic export for support cases, without any cloud telemetry.
+
+### Export Diagnostics
+
+Settings → Support → "Export Diagnostics" button. Bundles into a zip:
+- Last 24 hours of `os_log` output (filtered to `com.openplaudit.app` subsystem)
+- Config snapshot (`config.toml` with token and address redacted)
+- State file summaries (session counts, failure counts — not full state)
+- System info: macOS version, hardware model, app version, available disk space
+- Model inventory: which models are downloaded, sizes, dates
+
+The zip is saved to the user's chosen location. Nothing is sent automatically — the user attaches it to an email or GitHub issue manually.
+
+### Structured Error Journal
+
+A local `~/.local/share/openplaudit/errors.jsonl` file that captures every error with:
+- ISO 8601 timestamp
+- Module (BLE, audio, transcription, diarization, summarisation, sync, import, meeting, mic)
+- Operation (connect, download, decode, transcribe, diarise, summarise)
+- Error type and message
+- Context (session ID, filename, duration, model name — whatever is relevant)
+
+Written on every error path across all engines. Bounded: entries older than 30 days are pruned on launch. Survives os_log rotation (unified log rotates aggressively on macOS and is not guaranteed to retain entries beyond a few days).
+
+Queryable without Console.app — the export diagnostics button includes this file, and it can be read directly with any text editor or `jq`.
+
+---
+
 ## v0.6.0 — Mind Maps + Ask AI
 
 ### Mind Maps
