@@ -20,6 +20,7 @@ public struct AppConfig: Equatable, Sendable {
     public var sync = SyncConfig()
     public var notifications = NotificationConfig()
     public var meeting = MeetingConfig()
+    public var diarization = DiarizationConfig()
 
     public struct DeviceConfig: Equatable, Sendable {
         public var address: String = ""
@@ -46,6 +47,11 @@ public struct AppConfig: Equatable, Sendable {
     public struct NotificationConfig: Equatable, Sendable {
         public var enabled: Bool = true
         public var showPreview: Bool = true
+    }
+
+    public struct DiarizationConfig: Equatable, Sendable {
+        public var enabled: Bool = false
+        public var maxSpeakers: Int = 6
     }
 
     public struct MeetingConfig: Equatable, Sendable {
@@ -196,6 +202,11 @@ private func parseConfig(_ table: TOMLTable) -> AppConfig {
         if let sp = notif["show_preview"]?.bool { cfg.notifications.showPreview = sp }
     }
 
+    if let diar = table["diarization"]?.table {
+        if let en = diar["enabled"]?.bool { cfg.diarization.enabled = en }
+        if let ms = diar["max_speakers"]?.int { cfg.diarization.maxSpeakers = ms }
+    }
+
     if let meeting = table["meeting"]?.table {
         if let en = meeting["enabled"]?.bool { cfg.meeting.enabled = en }
         if let ar = meeting["auto_record"]?.bool { cfg.meeting.autoRecord = ar }
@@ -239,6 +250,11 @@ private func configToTOML(_ cfg: AppConfig) -> TOMLTable {
     notifications["enabled"] = cfg.notifications.enabled
     notifications["show_preview"] = cfg.notifications.showPreview
     table["notifications"] = notifications
+
+    let diarization = TOMLTable()
+    diarization["enabled"] = cfg.diarization.enabled
+    diarization["max_speakers"] = cfg.diarization.maxSpeakers
+    table["diarization"] = diarization
 
     let meeting = TOMLTable()
     meeting["enabled"] = cfg.meeting.enabled
@@ -308,6 +324,12 @@ public func setNested(_ cfg: inout AppConfig, key: String, value: String) throws
         switch name {
         case "enabled": cfg.notifications.enabled = parseBool(value)
         case "show_preview": cfg.notifications.showPreview = parseBool(value)
+        default: throw ConfigError.unknownKey(key)
+        }
+    case "diarization":
+        switch name {
+        case "enabled": cfg.diarization.enabled = parseBool(value)
+        case "max_speakers": cfg.diarization.maxSpeakers = Int(value) ?? 6
         default: throw ConfigError.unknownKey(key)
         }
     case "meeting":

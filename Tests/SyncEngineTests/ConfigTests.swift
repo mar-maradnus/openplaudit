@@ -218,6 +218,38 @@ struct KeychainConfigTests {
     }
 }
 
+@Suite("Diarization config")
+struct DiarizationConfigTests {
+    @Test func diarizationDefaultsOff() {
+        let cfg = AppConfig()
+        #expect(cfg.diarization.enabled == false)
+        #expect(cfg.diarization.maxSpeakers == 6)
+    }
+
+    @Test func diarizationRoundtrip() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let path = dir.appendingPathComponent("config.toml")
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        var cfg = AppConfig()
+        cfg.diarization.enabled = true
+        cfg.diarization.maxSpeakers = 4
+        try saveConfig(cfg, to: path)
+
+        let loaded = loadConfig(from: path)
+        #expect(loaded.diarization.enabled == true)
+        #expect(loaded.diarization.maxSpeakers == 4)
+    }
+
+    @Test func setNestedDiarization() throws {
+        var cfg = AppConfig()
+        try setNested(&cfg, key: "diarization.enabled", value: "true")
+        #expect(cfg.diarization.enabled == true)
+        try setNested(&cfg, key: "diarization.max_speakers", value: "3")
+        #expect(cfg.diarization.maxSpeakers == 3)
+    }
+}
+
 @Suite("getOutputDirs")
 struct OutputDirsTests {
     @Test func expectedSubdirs() {

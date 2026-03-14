@@ -7,6 +7,7 @@
 import Foundation
 import SyncEngine
 import TranscriptionKit
+import DiarizationKit
 import os
 
 private let log = Logger(subsystem: "com.openplaudit.app", category: "meeting-engine")
@@ -157,9 +158,19 @@ public final class MeetingEngine: ObservableObject {
 
             let lang = config.transcription.language
             let t = transcriber
-            let result = try await Task.detached {
+            var result = try await Task.detached {
                 try await t.transcribe(wavPath: recording.wavPath, language: lang)
             }.value
+
+            // Diarization: assign speaker labels
+            if config.diarization.enabled {
+                let maxSpk = config.diarization.maxSpeakers
+                let wav = recording.wavPath
+                let currentResult = result
+                result = try await Task.detached {
+                    try await SyncEngine.applyDiarization(to: currentResult, wavPath: wav, maxSpeakers: maxSpk)
+                }.value
+            }
 
             let jsonFilename = recording.wavPath
                 .deletingPathExtension()

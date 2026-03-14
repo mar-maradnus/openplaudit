@@ -38,7 +38,7 @@ let package = Package(
         ),
         .target(
             name: "SyncEngine",
-            dependencies: ["BLEKit", "AudioKit", "TOMLKit", "TranscriptionKit"],
+            dependencies: ["BLEKit", "AudioKit", "TOMLKit", "TranscriptionKit", "DiarizationKit"],
             path: "Sources/SyncEngine",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
@@ -49,13 +49,13 @@ let package = Package(
         ),
         .target(
             name: "MeetingKit",
-            dependencies: ["SyncEngine", "TranscriptionKit"],
+            dependencies: ["SyncEngine", "TranscriptionKit", "DiarizationKit"],
             path: "Sources/MeetingKit",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .target(
             name: "ImportKit",
-            dependencies: ["AudioKit", "SyncEngine", "TranscriptionKit"],
+            dependencies: ["AudioKit", "SyncEngine", "TranscriptionKit", "DiarizationKit"],
             path: "Sources/ImportKit",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),

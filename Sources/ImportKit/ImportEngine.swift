@@ -7,6 +7,7 @@ import Combine
 import Foundation
 import SyncEngine
 import TranscriptionKit
+import DiarizationKit
 import os
 
 private let log = Logger(subsystem: "com.openplaudit.app", category: "import")
@@ -103,7 +104,18 @@ public final class ImportEngine: ObservableObject {
         // Transcribe
         importState = .transcribing(filename: sourceFilename)
         do {
-            let result = try await transcriber.transcribe(wavPath: wavPath, language: config.transcription.language)
+            var result = try await transcriber.transcribe(wavPath: wavPath, language: config.transcription.language)
+
+            // Diarization: assign speaker labels
+            if config.diarization.enabled {
+                let maxSpk = config.diarization.maxSpeakers
+                let wav = wavPath
+                let currentResult = result
+                result = try await Task.detached {
+                    try await SyncEngine.applyDiarization(to: currentResult, wavPath: wav, maxSpeakers: maxSpk)
+                }.value
+            }
+
             let jsonPath = dirs.importTranscripts.appendingPathComponent("\(baseName).json")
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

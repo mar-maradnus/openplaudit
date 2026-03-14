@@ -24,6 +24,16 @@ public struct TranscriptionResult: Codable, Sendable {
         public var speaker: String?
     }
 
+    public init(file: String, durationSeconds: Double, model: String, language: String, segments: [Segment], text: String, speakers: [String]? = nil) {
+        self.file = file
+        self.durationSeconds = durationSeconds
+        self.model = model
+        self.language = language
+        self.segments = segments
+        self.text = text
+        self.speakers = speakers
+    }
+
     enum CodingKeys: String, CodingKey {
         case file
         case durationSeconds = "duration_seconds"

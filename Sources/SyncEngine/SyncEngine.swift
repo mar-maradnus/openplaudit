@@ -7,6 +7,7 @@ import AVFoundation
 import BLEKit
 import AudioKit
 import TranscriptionKit
+import DiarizationKit
 import os
 
 private let log = Logger(subsystem: "com.openplaudit.app", category: "sync")
@@ -250,9 +251,20 @@ public final class SyncEngine: ObservableObject {
                     log.info("Transcribing session \(sid)")
                     let t = self.transcriber
                     let lang = config.transcription.language
-                    let result = try await Task.detached {
+                    var result = try await Task.detached {
                         try await t.transcribe(wavPath: wavPath, language: lang)
                     }.value
+
+                    // Diarization: assign speaker labels to transcript segments
+                    if config.diarization.enabled {
+                        log.info("Diarizing session \(sid)")
+                        let maxSpk = config.diarization.maxSpeakers
+                        let wav = wavPath
+                        let currentResult = result
+                        result = try await Task.detached {
+                            try await Self.applyDiarization(to: currentResult, wavPath: wav, maxSpeakers: maxSpk)
+                        }.value
+                    }
 
                     let jsonPath = dirs.transcripts.appendingPathComponent("\(fname).json")
                     let encoder = JSONEncoder()
@@ -334,6 +346,32 @@ public final class SyncEngine: ObservableObject {
         case .noResponse(let msg):
             return "No response: \(msg) — device may be busy or out of range"
         }
+    }
+
+    /// Run diarization on a WAV file and merge speaker labels into a transcription result.
+    public static func applyDiarization(to result: TranscriptionResult, wavPath: URL, maxSpeakers: Int) async throws -> TranscriptionResult {
+        let diarizer = MFCCDiarizer(maxSpeakers: maxSpeakers)
+        let diaResult = try await diarizer.diarize(wavPath: wavPath)
+
+        let tuples = result.segments.map { (start: $0.start, end: $0.end, text: $0.text) }
+        let merged = mergeTranscriptWithSpeakers(transcriptSegments: tuples, diarization: diaResult)
+
+        var updatedSegments = result.segments
+        for i in updatedSegments.indices {
+            updatedSegments[i].speaker = merged[i].speaker
+        }
+
+        var updatedResult = result
+        updatedResult = TranscriptionResult(
+            file: result.file,
+            durationSeconds: result.durationSeconds,
+            model: result.model,
+            language: result.language,
+            segments: updatedSegments,
+            text: result.text
+        )
+        updatedResult.speakers = diaResult.speakers
+        return updatedResult
     }
 
     /// Get exact WAV duration via AVAudioFile; returns nil on failure.
