@@ -140,6 +140,8 @@ public final class MeetingEngine: ObservableObject {
             recordingState = .recording(app: app.displayName)
         } catch {
             log.error("Failed to start recording: \(error.localizedDescription, privacy: .public)")
+            ErrorJournal.shared.log(module: "meeting", operation: "start-recording",
+                                    error: error, context: ["app": app.rawValue])
             recordingState = .error("Recording failed: \(error.localizedDescription)")
         }
     }
@@ -237,6 +239,7 @@ public final class MeetingEngine: ObservableObject {
             state.markFailed(id: failID, reason: error.localizedDescription)
             try? state.saveAtomically()
             log.error("Meeting recording/transcription failed: \(error.localizedDescription, privacy: .public)")
+            ErrorJournal.shared.log(module: "meeting", operation: "record-transcribe", error: error)
             recordingState = .error(error.localizedDescription)
         }
     }

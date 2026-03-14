@@ -136,9 +136,12 @@ public final class SyncEngine: ObservableObject {
             try await client.connect()
         } catch let error as BLEError {
             status = .error(Self.remediation(for: error))
+            ErrorJournal.shared.log(module: "ble", operation: "connect", error: error,
+                                    context: ["address": config.device.address])
             throw error
         } catch {
             status = .error("Connection failed: \(error.localizedDescription)")
+            ErrorJournal.shared.log(module: "ble", operation: "connect", error: error)
             throw error
         }
         isConnected = true
@@ -307,6 +310,10 @@ public final class SyncEngine: ObservableObject {
                 log.error("Session \(sid) failed: \(error.localizedDescription, privacy: .public)")
                 state.markFailed(sid, reason: "\(type(of: error)): \(error.localizedDescription)")
                 try? state.saveAtomically()
+                ErrorJournal.shared.log(
+                    module: "sync", operation: "sync-session",
+                    error: error, context: ["session_id": "\(sid)"]
+                )
             }
 
             progress = nil

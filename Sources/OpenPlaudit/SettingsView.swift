@@ -46,6 +46,10 @@ struct SettingsView: View {
     @State private var meetingMicDeviceID: String = ""
     @State private var availableMics: [(id: String, name: String)] = []
 
+    // Diagnostics state
+    @State private var diagnosticsMessage: String?
+    @State private var isExportingDiagnostics = false
+
     enum SettingsSection: String, CaseIterable, Identifiable {
         case device = "Device"
         case output = "Output"
@@ -53,6 +57,7 @@ struct SettingsView: View {
         case ai = "AI"
         case sync = "Sync"
         case meetings = "Meetings"
+        case support = "Support"
 
         var id: String { rawValue }
 
@@ -64,6 +69,7 @@ struct SettingsView: View {
             case .ai: return "brain"
             case .sync: return "arrow.triangle.2.circlepath"
             case .meetings: return "video.fill"
+            case .support: return "lifepreserver"
             }
         }
     }
@@ -98,6 +104,7 @@ struct SettingsView: View {
         case .ai: aiSection
         case .sync: syncSection
         case .meetings: meetingsSection
+        case .support: supportSection
         }
     }
 
@@ -339,6 +346,81 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .padding(.top, 8)
         .onAppear { refreshMicDevices() }
+    }
+
+    private var supportSection: some View {
+        Form {
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Export a diagnostics bundle for support. This collects system info, redacted config, state summaries, error logs, and recent os_log output. No data is sent automatically.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        Button("Export Diagnostics…") { exportDiagnostics() }
+                            .disabled(isExportingDiagnostics)
+                        if isExportingDiagnostics {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                    }
+                    if let msg = diagnosticsMessage {
+                        Text(msg)
+                            .font(.caption)
+                            .foregroundStyle(msg.contains("Saved") ? .green : .red)
+                    }
+                }
+            } header: {
+                Text("Diagnostics")
+            }
+
+            Section {
+                LabeledContent("Error journal entries:", value: "\(ErrorJournal.shared.entryCount)")
+                Button("Open Data Folder…") {
+                    let path = NSString(string: "~/.local/share/openplaudit").expandingTildeInPath
+                    let url = URL(fileURLWithPath: path)
+                    try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+                    NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: url.path)
+                }
+                Button("Open Logs in Console…") {
+                    NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Applications/Utilities/Console.app"))
+                }
+            } header: {
+                Text("Tools")
+            }
+        }
+        .formStyle(.grouped)
+        .padding(.top, 8)
+    }
+
+    private func exportDiagnostics() {
+        let panel = NSSavePanel()
+        panel.title = "Save Diagnostics"
+        panel.nameFieldStringValue = "openplaudit-diagnostics.zip"
+        panel.allowedContentTypes = [.zip]
+        panel.begin { [self] response in
+            guard response == .OK, let url = panel.url else { return }
+            isExportingDiagnostics = true
+            diagnosticsMessage = nil
+
+            Task {
+                do {
+                    let outputDir = url.deletingLastPathComponent()
+                    let zipURL = try DiagnosticsExporter.export(
+                        config: engine.config,
+                        to: outputDir
+                    )
+                    // Rename to the user's chosen filename if different
+                    if zipURL.lastPathComponent != url.lastPathComponent {
+                        try? FileManager.default.removeItem(at: url)
+                        try FileManager.default.moveItem(at: zipURL, to: url)
+                    }
+                    diagnosticsMessage = "Saved to \(url.lastPathComponent)"
+                } catch {
+                    diagnosticsMessage = error.localizedDescription
+                }
+                isExportingDiagnostics = false
+            }
+        }
     }
 
     private func refreshMicDevices() {

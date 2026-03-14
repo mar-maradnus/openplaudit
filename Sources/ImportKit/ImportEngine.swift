@@ -87,6 +87,8 @@ public final class ImportEngine: ObservableObject {
             log.error("Conversion failed for \(sourceFilename, privacy: .public): \(error.localizedDescription, privacy: .public)")
             state.markImported(id: id, sourceFilename: sourceFilename, duration: 0, filename: wavFilename)
             state.markFailed(id: id, reason: error.localizedDescription)
+            ErrorJournal.shared.log(module: "import", operation: "convert",
+                                    error: error, context: ["filename": sourceFilename])
             importState = .error("Failed to convert \(sourceFilename)")
             return
         }
@@ -144,6 +146,8 @@ public final class ImportEngine: ObservableObject {
         } catch {
             log.error("Transcription failed for \(sourceFilename, privacy: .public): \(error.localizedDescription, privacy: .public)")
             state.markFailed(id: id, reason: error.localizedDescription)
+            ErrorJournal.shared.log(module: "import", operation: "transcribe",
+                                    error: error, context: ["filename": sourceFilename])
             importState = .error("Transcription failed for \(sourceFilename)")
         }
 
