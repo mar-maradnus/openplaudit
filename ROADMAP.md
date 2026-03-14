@@ -241,4 +241,5 @@ A lightweight recording app that replaces the PLAUD device entirely. No hardware
 - **Download on first use.** Large model files are downloaded to `~/.local/share/openplaudit/models/` on first use, not shipped in the app bundle.
 - **Shared pipeline.** All input sources feed into the same transcription → diarization → summarisation pipeline.
 - **Source-agnostic.** The processing pipeline does not know or care where the audio came from. PLAUD sync, meeting capture, microphone recording, and file import all produce WAV files that enter the same pipeline.
+- **Model-agnostic.** Each pipeline stage (transcription, diarization, summarisation) loads models via a descriptor registry (name, URL, quantisation, context window). Adding a new model is a config change, not a code change. The settings UI exposes available models per stage so users can trade size for quality.
 - **Backward-compatible JSON.** New fields (speaker, summary, mindmap) are additive. Older transcripts remain valid.
