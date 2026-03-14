@@ -53,11 +53,17 @@ let package = Package(
             path: "Sources/MeetingKit",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
+        .target(
+            name: "ImportKit",
+            dependencies: ["AudioKit", "SyncEngine", "TranscriptionKit"],
+            path: "Sources/ImportKit",
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
 
         // --- App ---
         .executableTarget(
             name: "OpenPlaudit",
-            dependencies: ["BLEKit", "AudioKit", "SyncEngine", "TranscriptionKit", "MeetingKit"],
+            dependencies: ["BLEKit", "AudioKit", "SyncEngine", "TranscriptionKit", "MeetingKit", "ImportKit"],
             path: "Sources/OpenPlaudit",
             exclude: ["Resources/Info.plist", "Resources/OpenPlaudit.entitlements"],
             swiftSettings: [.swiftLanguageMode(.v5)]
@@ -83,6 +89,11 @@ let package = Package(
             name: "MeetingKitTests",
             dependencies: ["MeetingKit", "SyncEngine", .product(name: "Testing", package: "swift-testing")],
             path: "Tests/MeetingKitTests"
+        ),
+        .testTarget(
+            name: "ImportKitTests",
+            dependencies: ["ImportKit", "SyncEngine", .product(name: "Testing", package: "swift-testing")],
+            path: "Tests/ImportKitTests"
         ),
     ]
 )

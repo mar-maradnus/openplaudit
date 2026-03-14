@@ -10,7 +10,9 @@ import Combine
 import SwiftUI
 import SyncEngine
 import TranscriptionKit
+import ImportKit
 import MeetingKit
+import UniformTypeIdentifiers
 import os
 
 private let log = Logger(subsystem: "com.openplaudit.app", category: "app")
@@ -19,6 +21,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var engine: SyncEngine!
     var meetingEngine: MeetingEngine!
+    var importEngine: ImportEngine!
     private var settingsWindow: NSWindow?
     private var aboutWindow: NSWindow?
     private var cancellables: Set<AnyCancellable> = []
@@ -33,6 +36,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let meetingSeparatorTag = 400
     private let meetingRecordTag = 401
     private let meetingStatusTag = 402
+    private let importTag = 500
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Install a standard Edit menu so Cmd+V paste works in text fields.
@@ -44,6 +48,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Shared transcriber (model loaded once, reused by both engines)
         let transcriber = Transcriber(model: config.transcription.model)
         meetingEngine = MeetingEngine(config: config, transcriber: transcriber)
+        importEngine = ImportEngine(config: config, transcriber: transcriber)
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
@@ -118,6 +123,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         meetingStatusLine.isEnabled = false
         meetingStatusLine.tag = meetingStatusTag
         menu.addItem(meetingStatusLine)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let importItem = NSMenuItem(title: "Import Audio File…", action: #selector(importAudioFile), keyEquivalent: "i")
+        importItem.tag = importTag
+        menu.addItem(importItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -249,6 +260,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             NSWorkspace.shared.open(jsonPath)
         } else if FileManager.default.fileExists(atPath: wavPath.path) {
             NSWorkspace.shared.open(wavPath)
+        }
+    }
+
+    @objc func importAudioFile() {
+        let panel = NSOpenPanel()
+        panel.title = "Import Audio File"
+        panel.allowedContentTypes = [.audio, .movie]
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.begin { [weak self] response in
+            guard response == .OK, !panel.urls.isEmpty else { return }
+            let urls = panel.urls.filter { isSupportedAudioFile($0) }
+            guard !urls.isEmpty else { return }
+            Task { @MainActor in
+                self?.importEngine.importFiles(urls)
+            }
         }
     }
 
