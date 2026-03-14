@@ -1,0 +1,157 @@
+# OpenPlaudit Product Roadmap
+
+## Current: v0.4.0
+
+Released 2026-03-13. PLAUD BLE sync, meeting recording, local whisper.cpp transcription, macOS menubar app. Signed with Developer ID and notarised by Apple.
+
+---
+
+## v0.5.0 — Speaker Diarization + Summarisation
+
+The core intelligence upgrade. All processing remains local — no cloud services.
+
+### Speaker Diarization
+
+Identify who said what in every recording. Speaker labels are embedded in transcript segments.
+
+**Approach:** Native C/C++ diarization using ONNX Runtime with pyannote segmentation model (cf. loud.cpp). Bundled as an SPM C dependency alongside COpus. Models auto-download on first use to `~/.local/share/openplaudit/models/`.
+
+**Pipeline change:**
+```
+WAV → whisper.cpp (transcription) → diarization (speaker segmentation) → merge → labelled transcript JSON
+```
+
+**Transcript format extension:**
+```json
+{
+  "segments": [
+    { "start": 0.0, "end": 5.2, "text": "Let's review the numbers.", "speaker": "Speaker 1" },
+    { "start": 5.2, "end": 12.0, "text": "Revenue is up 15%.", "speaker": "Speaker 2" }
+  ],
+  "speakers": ["Speaker 1", "Speaker 2"]
+}
+```
+
+**Applies to:** Both PLAUD device recordings and meeting recordings.
+
+### Local Summarisation
+
+LLM-powered summaries using bundled llama.cpp — no Ollama, MLX, or external runtime required.
+
+**Architecture:** New `SummarisationKit` SPM target. llama.cpp compiled as a C library dependency. Small quantised model (~2GB, e.g. Qwen2.5-3B-Q4 or Phi-3-mini-Q4) downloaded on first use.
+
+**Built-in Templates:**
+
+| Template | Output | Use Case |
+|----------|--------|----------|
+| **Key Points** | 5-7 bullet points | Quick overview of any recording |
+| **Meeting Minutes** | Attendees, agenda, discussion, decisions | Formal meeting records |
+| **Action Items** | Task, owner, due date table | Project follow-up |
+| **Cornell Notes** | Cues, notes, summary columns | Study and review |
+| **SOAP Notes** | Subjective, Objective, Assessment, Plan | Medical consultations |
+
+**Custom Templates:** User-defined prompt templates stored in `~/.config/openplaudit/templates/`. Each template is a text file with a system prompt. The transcript (with speaker labels) is injected as context.
+
+**Settings:**
+- Enable/disable summarisation
+- Select default template
+- Choose summarisation model (small/medium trade-off)
+- Manage custom templates
+
+**Output:** Summary appended to the transcript JSON as a `summary` field:
+```json
+{
+  "summary": {
+    "template": "action_items",
+    "model": "qwen2.5-3b-q4",
+    "content": "## Action Items\n| Task | Owner | Due |\n|------|-------|-----|\n| ... |"
+  }
+}
+```
+
+### UI Changes
+
+- Transcript preview in menubar shows speaker-labelled text
+- Summary preview (first 60 chars) shown alongside transcript preview
+- Settings: new "AI" tab for diarization, summarisation, template management
+
+---
+
+## v0.6.0 — Mind Maps + Ask AI
+
+### Mind Maps
+
+LLM generates a structured hierarchical outline from the transcript/summary. Exported as:
+- Mermaid diagram (rendered in transcript viewer)
+- OPML (importable into mind map tools)
+- Markdown outline
+
+Stored in transcript JSON as a `mindmap` field.
+
+### Ask AI — Chat With Your Transcript
+
+Local conversational interface for querying recording content.
+
+- Small chat window opened from the menubar or by clicking a recording
+- Full transcript + summary loaded as LLM context
+- Example queries: "What did Speaker 2 say about the budget?", "Summarise the first 10 minutes", "List all questions that were asked"
+- Uses the same bundled llama.cpp model as summarisation
+- Context window: 8K tokens minimum (limits apply for very long recordings)
+
+---
+
+## v0.7.0 — Voice Learning
+
+### Persistent Speaker Identification
+
+Name a speaker once; OpenPlaudit recognises them in future recordings.
+
+**Approach:**
+- Generate speaker embeddings (d-vectors) during diarization
+- Store named embeddings in `~/.local/share/openplaudit/speakers/`
+- On new recordings, match diarized segments against stored embeddings
+- Auto-label matched speakers; prompt for unknown speakers
+
+**UI:**
+- After diarization, a "Name Speakers" prompt in the menubar
+- Speaker management in Settings (view, rename, delete stored voices)
+- Confidence threshold to avoid misidentification
+
+---
+
+## v0.8.0 — Direct Device Binding
+
+### Bind PLAUD Note Without iPhone
+
+Eliminate the token extraction process entirely. OpenPlaudit handles device binding directly over BLE.
+
+**Approach:** Capture the factory-reset BLE binding protocol using an nRF52840 sniffer dongle (Raytac MDBT50Q-CX, on order, expected ~2026-04-03). Reverse-engineer the pairing handshake and replicate it in `BLEKit`.
+
+**User flow:**
+1. Factory reset the PLAUD Note
+2. Click "Bind Device" in OpenPlaudit Settings
+3. OpenPlaudit scans, pairs, and sets a binding token
+4. Done — no iPhone backup, no manual token entry
+
+**Trade-off:** Factory reset loses unsynced recordings and breaks the official PLAUD app binding. OpenPlaudit will warn clearly before proceeding.
+
+---
+
+## Backlog
+
+- **Unified Recent Recordings** — merge PLAUD and meeting recordings into a single menubar list sorted by date
+- **Export formats** — PDF, DOCX, SRT subtitle export from transcripts
+- **Batch re-summarise** — apply a new template to existing transcripts
+- **Keyboard shortcuts** — global hotkey for manual meeting recording start/stop
+- **Auto-update** — Sparkle framework for in-app update checks
+- **iOS companion** — share transcripts via iCloud or local network
+
+---
+
+## Technical Principles
+
+- **Zero cloud dependency.** All processing — transcription, diarization, summarisation — runs locally on the user's Mac.
+- **No external runtime.** Models and inference engines are bundled. No Ollama, MLX, or Python required.
+- **Download on first use.** Large model files are downloaded to `~/.local/share/openplaudit/models/` on first use, not shipped in the app bundle.
+- **Shared pipeline.** PLAUD recordings and meeting recordings use the same transcription → diarization → summarisation pipeline.
+- **Backward-compatible JSON.** New fields (speaker, summary, mindmap) are additive. Older transcripts remain valid.
