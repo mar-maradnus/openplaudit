@@ -29,6 +29,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var micDurationTimer: Timer?
     private var settingsWindow: NSWindow?
     private var aboutWindow: NSWindow?
+    private var chatWindows: [NSWindow] = []
     private var cancellables: Set<AnyCancellable> = []
     private var durationTimer: Timer?
 
@@ -44,6 +45,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let importTag = 500
     private let micRecordTag = 600
     private let micStatusTag = 601
+    private let askAITag = 700
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Install a standard Edit menu so Cmd+V paste works in text fields.
@@ -147,6 +149,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         micStatusLine.isEnabled = false
         micStatusLine.tag = micStatusTag
         menu.addItem(micStatusLine)
+
+        menu.addItem(NSMenuItem.separator())
+
+        let askAIItem = NSMenuItem(title: "Ask AI…", action: #selector(openAskAI), keyEquivalent: "a")
+        askAIItem.tag = askAITag
+        menu.addItem(askAIItem)
 
         menu.addItem(NSMenuItem.separator())
 
@@ -270,15 +278,69 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         guard let filename = sender.representedObject as? String else { return }
         let cfg = MainActor.assumeIsolated { engine.config }
         let dirs = getOutputDirs(cfg)
-        // Try transcript first, fall back to audio
         let baseName = (filename as NSString).deletingPathExtension
-        let jsonPath = dirs.transcripts.appendingPathComponent(baseName + ".json")
+
+        // Check all transcript directories
+        let transcriptDirs = [dirs.transcripts,
+                              dirs.meetingTranscripts,
+                              dirs.importTranscripts]
+        for dir in transcriptDirs {
+            let jsonPath = dir.appendingPathComponent(baseName + ".json")
+            if FileManager.default.fileExists(atPath: jsonPath.path) {
+                if cfg.summarisation.enabled {
+                    openChatForTranscript(jsonPath)
+                } else {
+                    NSWorkspace.shared.open(jsonPath)
+                }
+                return
+            }
+        }
+
+        // Fall back to audio
         let wavPath = dirs.audio.appendingPathComponent(filename)
-        if FileManager.default.fileExists(atPath: jsonPath.path) {
-            NSWorkspace.shared.open(jsonPath)
-        } else if FileManager.default.fileExists(atPath: wavPath.path) {
+        if FileManager.default.fileExists(atPath: wavPath.path) {
             NSWorkspace.shared.open(wavPath)
         }
+    }
+
+    @objc func openAskAI() {
+        // Open a file picker for JSON transcripts, then open chat window
+        let panel = NSOpenPanel()
+        panel.title = "Choose a Transcript"
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+
+        // Default to transcripts directory
+        let cfg = MainActor.assumeIsolated { engine.config }
+        let dirs = getOutputDirs(cfg)
+        panel.directoryURL = dirs.transcripts
+
+        panel.begin { [weak self] response in
+            guard response == .OK, let url = panel.urls.first else { return }
+            self?.openChatForTranscript(url)
+        }
+    }
+
+    private func openChatForTranscript(_ jsonURL: URL) {
+        guard let data = try? Data(contentsOf: jsonURL),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let text = json["text"] as? String else {
+            log.error("Could not read transcript from \(jsonURL.lastPathComponent, privacy: .public)")
+            return
+        }
+
+        let summary = (json["summary"] as? [String: Any])?["content"] as? String
+        let name = jsonURL.deletingPathExtension().lastPathComponent
+        let cfg = MainActor.assumeIsolated { engine.config }
+
+        let window = openChatWindow(
+            transcript: text,
+            summary: summary,
+            recordingName: name,
+            config: cfg
+        )
+        chatWindows.append(window)
     }
 
     @objc func importAudioFile() {

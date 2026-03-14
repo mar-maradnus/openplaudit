@@ -6,6 +6,7 @@ import SwiftUI
 import SyncEngine
 import TranscriptionKit
 import MeetingKit
+import DiarizationKit
 import SummarisationKit
 
 struct SettingsView: View {
@@ -45,6 +46,11 @@ struct SettingsView: View {
     @State private var meetingMonitoredApps: Set<String> = []
     @State private var meetingMicDeviceID: String = ""
     @State private var availableMics: [(id: String, name: String)] = []
+
+    // Speaker management state
+    @State private var storedSpeakers: [SpeakerEmbedding] = []
+    @State private var renamingSpeaker: String?
+    @State private var newSpeakerName: String = ""
 
     // Diagnostics state
     @State private var diagnosticsMessage: String?
@@ -250,6 +256,48 @@ struct SettingsView: View {
             }
 
             Section {
+                if storedSpeakers.isEmpty {
+                    Text("No learned voices yet. Voices are saved after diarization when you name speakers.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(storedSpeakers, id: \.name) { speaker in
+                        HStack {
+                            if renamingSpeaker == speaker.name {
+                                TextField("New name", text: $newSpeakerName)
+                                    .textFieldStyle(.roundedBorder)
+                                    .onSubmit { commitRename(from: speaker.name) }
+                                Button("Save") { commitRename(from: speaker.name) }
+                                    .buttonStyle(.borderless)
+                                Button("Cancel") { renamingSpeaker = nil }
+                                    .buttonStyle(.borderless)
+                            } else {
+                                Text(speaker.name)
+                                Spacer()
+                                Text("\(speaker.embedding.count)-dim")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Button("Rename") {
+                                    renamingSpeaker = speaker.name
+                                    newSpeakerName = speaker.name
+                                }
+                                .buttonStyle(.borderless)
+                                .font(.caption)
+                                Button("Delete") { deleteSpeaker(speaker.name) }
+                                    .buttonStyle(.borderless)
+                                    .font(.caption)
+                                    .foregroundStyle(.red)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text("Learned Voices (\(storedSpeakers.count))")
+            } footer: {
+                Text("Recognised speakers will be matched across recordings automatically.")
+            }
+
+            Section {
                 Toggle("Enable summarisation", isOn: $summarisationEnabled)
                     .accessibilityLabel("Enable LLM summarisation")
                 TextField("Ollama URL:", text: $ollamaURL)
@@ -275,6 +323,23 @@ struct SettingsView: View {
         }
         .formStyle(.grouped)
         .padding(.top, 8)
+        .onAppear { refreshSpeakers() }
+    }
+
+    private func refreshSpeakers() {
+        storedSpeakers = SpeakerStore().loadAll().sorted { $0.name < $1.name }
+    }
+
+    private func deleteSpeaker(_ name: String) {
+        try? SpeakerStore().delete(name: name)
+        refreshSpeakers()
+    }
+
+    private func commitRename(from oldName: String) {
+        guard !newSpeakerName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        try? SpeakerStore().rename(from: oldName, to: newSpeakerName.trimmingCharacters(in: .whitespaces))
+        renamingSpeaker = nil
+        refreshSpeakers()
     }
 
     private var meetingsSection: some View {
