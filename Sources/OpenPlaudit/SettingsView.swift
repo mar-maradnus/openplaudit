@@ -6,6 +6,7 @@ import SwiftUI
 import SyncEngine
 import TranscriptionKit
 import MeetingKit
+import SummarisationKit
 
 struct SettingsView: View {
     @ObservedObject var engine: SyncEngine
@@ -28,6 +29,14 @@ struct SettingsView: View {
     @State private var selectedSection: SettingsSection = .device
     @State private var modelFileInfo: String?
 
+    // AI config state
+    @State private var diarizationEnabled: Bool = false
+    @State private var maxSpeakers: Int = 6
+    @State private var summarisationEnabled: Bool = false
+    @State private var summarisationModel: String = "qwen2.5:3b"
+    @State private var defaultTemplate: String = "key_points"
+    @State private var ollamaURL: String = "http://localhost:11434"
+
     // Meeting config state
     @State private var meetingEnabled: Bool = false
     @State private var meetingAutoRecord: Bool = false
@@ -41,6 +50,7 @@ struct SettingsView: View {
         case device = "Device"
         case output = "Output"
         case transcription = "Transcription"
+        case ai = "AI"
         case sync = "Sync"
         case meetings = "Meetings"
 
@@ -51,6 +61,7 @@ struct SettingsView: View {
             case .device: return "antenna.radiowaves.left.and.right"
             case .output: return "folder"
             case .transcription: return "text.bubble"
+            case .ai: return "brain"
             case .sync: return "arrow.triangle.2.circlepath"
             case .meetings: return "video.fill"
             }
@@ -84,6 +95,7 @@ struct SettingsView: View {
         case .device: deviceSection
         case .output: outputSection
         case .transcription: transcriptionSection
+        case .ai: aiSection
         case .sync: syncSection
         case .meetings: meetingsSection
         }
@@ -216,6 +228,48 @@ struct SettingsView: View {
         .padding(.top, 8)
     }
 
+    private var aiSection: some View {
+        Form {
+            Section {
+                Toggle("Enable speaker diarization", isOn: $diarizationEnabled)
+                    .accessibilityLabel("Enable speaker identification")
+                Stepper("Max speakers: \(maxSpeakers)", value: $maxSpeakers, in: 2...12)
+                    .disabled(!diarizationEnabled)
+                    .accessibilityLabel("Maximum number of speakers to detect")
+            } header: {
+                Text("Speaker Diarization")
+            } footer: {
+                Text("Identifies who said what using MFCC audio features and clustering. Runs locally after transcription.")
+            }
+
+            Section {
+                Toggle("Enable summarisation", isOn: $summarisationEnabled)
+                    .accessibilityLabel("Enable LLM summarisation")
+                TextField("Ollama URL:", text: $ollamaURL)
+                    .disabled(!summarisationEnabled)
+                    .accessibilityLabel("Ollama server URL")
+                TextField("Model:", text: $summarisationModel)
+                    .disabled(!summarisationEnabled)
+                    .accessibilityLabel("Summarisation model name")
+                Picker("Default template:", selection: $defaultTemplate) {
+                    ForEach(builtInTemplates) { tmpl in
+                        Text(tmpl.name).tag(tmpl.id)
+                    }
+                }
+                .disabled(!summarisationEnabled)
+                .accessibilityLabel("Default summarisation template")
+            } header: {
+                Text("Summarisation")
+            } footer: {
+                Text("Generates summaries using a local Ollama model. Requires 'ollama serve' running.")
+            }
+
+            saveRow
+        }
+        .formStyle(.grouped)
+        .padding(.top, 8)
+    }
+
     private var meetingsSection: some View {
         Form {
             if !meetingConsentAcknowledged {
@@ -329,6 +383,13 @@ struct SettingsView: View {
         autoSyncEnabled = cfg.sync.autoSyncEnabled
         autoSyncIntervalMinutes = cfg.sync.autoSyncIntervalMinutes
 
+        diarizationEnabled = cfg.diarization.enabled
+        maxSpeakers = cfg.diarization.maxSpeakers
+        summarisationEnabled = cfg.summarisation.enabled
+        summarisationModel = cfg.summarisation.model
+        defaultTemplate = cfg.summarisation.defaultTemplate
+        ollamaURL = cfg.summarisation.ollamaURL
+
         meetingEnabled = cfg.meeting.enabled
         meetingAutoRecord = cfg.meeting.autoRecord
         meetingIncludeBrowsers = cfg.meeting.includeBrowsers
@@ -349,6 +410,13 @@ struct SettingsView: View {
         engine.config.notifications.showPreview = showPreview
         engine.config.sync.autoSyncEnabled = autoSyncEnabled
         engine.config.sync.autoSyncIntervalMinutes = autoSyncIntervalMinutes
+
+        engine.config.diarization.enabled = diarizationEnabled
+        engine.config.diarization.maxSpeakers = maxSpeakers
+        engine.config.summarisation.enabled = summarisationEnabled
+        engine.config.summarisation.model = summarisationModel
+        engine.config.summarisation.defaultTemplate = defaultTemplate
+        engine.config.summarisation.ollamaURL = ollamaURL
 
         engine.config.meeting.enabled = meetingEnabled
         engine.config.meeting.autoRecord = meetingAutoRecord
