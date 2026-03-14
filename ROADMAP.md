@@ -1,14 +1,57 @@
 # OpenPlaudit Product Roadmap
 
+## Vision
+
+A privacy-first audio intelligence app for macOS. Record, transcribe, diarize, and summarise — entirely on-device, with no cloud dependency. Audio can come from any source: meetings, microphone, file import, or hardware devices like PLAUD Note.
+
+The product began as a PLAUD Note sync tool but the core value is the local processing pipeline. PLAUD support is one input source among several; the app is useful to anyone who records and transcribes audio.
+
+### Input Sources
+
+| Source | Status | Description |
+|--------|--------|-------------|
+| **PLAUD BLE sync** | Shipped (v0.1) | Download recordings from PLAUD Note over Bluetooth |
+| **Meeting capture** | Shipped (v0.4) | Record system audio + mic from Teams, Zoom, Webex, FaceTime, Slack |
+| **Microphone recording** | Planned (v0.5) | Direct dictation or in-person meeting capture, no hardware needed |
+| **File import** | Planned (v0.5) | Drag-and-drop or menu import of any audio/video file |
+| **System audio** | Planned (v0.6) | Standalone system audio capture, not tied to a specific app |
+| **Other hardware** | Future | USB mass storage recorders, other BLE devices |
+
+### Processing Pipeline
+
+All sources feed into the same pipeline:
+
+```
+Audio → Transcription (whisper.cpp) → Diarization (speaker ID) → Summarisation (local LLM) → Output
+```
+
+Every stage runs locally. Models download on first use. No accounts, no API keys, no data leaving the machine.
+
+---
+
 ## Current: v0.4.0
 
 Released 2026-03-13. PLAUD BLE sync, meeting recording, local whisper.cpp transcription, macOS menubar app. Signed with Developer ID and notarised by Apple.
 
 ---
 
-## v0.5.0 — Speaker Diarization + Summarisation
+## v0.5.0 — New Input Sources + Speaker Diarization + Summarisation
 
-The core intelligence upgrade. All processing remains local — no cloud services.
+The core intelligence upgrade and the shift from "PLAUD tool" to "privacy-first audio app."
+
+### New Input Sources
+
+**Microphone Recording:**
+- Record directly from any connected microphone — built-in, USB, or Bluetooth
+- One-click start/stop from the menubar, with optional global keyboard shortcut
+- Useful for in-person meetings, dictation, interviews, lectures
+- No PLAUD device or meeting app required
+
+**File Import:**
+- Drag-and-drop audio/video files onto the menubar icon, or use File → Import
+- Supports any format whisper.cpp/FFmpeg handles: WAV, MP3, M4A, FLAC, MP4, MOV, etc.
+- Imported files go through the same transcribe → diarize → summarise pipeline
+- Useful for processing existing recordings, podcast episodes, voice memos
 
 ### Speaker Diarization
 
@@ -32,7 +75,7 @@ WAV → whisper.cpp (transcription) → diarization (speaker segmentation) → m
 }
 ```
 
-**Applies to:** Both PLAUD device recordings and meeting recordings.
+**Applies to:** All input sources — PLAUD recordings, meetings, microphone, and imported files.
 
 ### Local Summarisation
 
@@ -71,9 +114,12 @@ LLM-powered summaries using bundled llama.cpp — no Ollama, MLX, or external ru
 
 ### UI Changes
 
+- Unified "Recent Recordings" list merging all sources (PLAUD, meetings, mic, imports), sorted by date
+- Source icon indicator per recording (device, meeting app, microphone, file)
 - Transcript preview in menubar shows speaker-labelled text
-- Summary preview (first 60 chars) shown alongside transcript preview
+- Summary preview shown alongside transcript preview
 - Settings: new "AI" tab for diarization, summarisation, template management
+- Settings: new "Recording" tab for microphone selection and import preferences
 
 ---
 
@@ -104,7 +150,7 @@ Local conversational interface for querying recording content.
 
 ### Persistent Speaker Identification
 
-Name a speaker once; OpenPlaudit recognises them in future recordings.
+Name a speaker once; OpenPlaudit recognises them in future recordings across all input sources.
 
 **Approach:**
 - Generate speaker embeddings (d-vectors) during diarization
@@ -139,12 +185,14 @@ Eliminate the token extraction process entirely. OpenPlaudit handles device bind
 
 ## Backlog
 
-- **Unified Recent Recordings** — merge PLAUD and meeting recordings into a single menubar list sorted by date
 - **Export formats** — PDF, DOCX, SRT subtitle export from transcripts
 - **Batch re-summarise** — apply a new template to existing transcripts
-- **Keyboard shortcuts** — global hotkey for manual meeting recording start/stop
+- **Keyboard shortcuts** — global hotkeys for recording start/stop
 - **Auto-update** — Sparkle framework for in-app update checks
 - **iOS companion** — share transcripts via iCloud or local network
+- **System audio standalone** — capture system audio without targeting a specific app
+- **Other hardware** — USB mass storage voice recorders, other BLE devices
+- **Rename** — consider renaming the project to reflect broader scope beyond PLAUD
 
 ---
 
@@ -153,5 +201,6 @@ Eliminate the token extraction process entirely. OpenPlaudit handles device bind
 - **Zero cloud dependency.** All processing — transcription, diarization, summarisation — runs locally on the user's Mac.
 - **No external runtime.** Models and inference engines are bundled. No Ollama, MLX, or Python required.
 - **Download on first use.** Large model files are downloaded to `~/.local/share/openplaudit/models/` on first use, not shipped in the app bundle.
-- **Shared pipeline.** PLAUD recordings and meeting recordings use the same transcription → diarization → summarisation pipeline.
+- **Shared pipeline.** All input sources feed into the same transcription → diarization → summarisation pipeline.
+- **Source-agnostic.** The processing pipeline does not know or care where the audio came from. PLAUD sync, meeting capture, microphone recording, and file import all produce WAV files that enter the same pipeline.
 - **Backward-compatible JSON.** New fields (speaker, summary, mindmap) are additive. Older transcripts remain valid.
