@@ -8,9 +8,7 @@ struct RecordingListView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Theme.background.ignoresSafeArea()
-
+            Group {
                 if recordings.isEmpty {
                     emptyState
                 } else {
@@ -22,11 +20,14 @@ struct RecordingListView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
-                        .padding(.bottom, 24)
                     }
+                    .safeAreaPadding(.bottom, 60)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Theme.background)
             .navigationTitle("Recordings")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
         }
     }
@@ -110,7 +111,7 @@ struct RecordingRow: View {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(timeString)
-                        .serifHeading(Theme.title)
+                        .font(Theme.rowTitle)
                         .foregroundStyle(Theme.textPrimary)
                     Text(durationString)
                         .font(Theme.mono)

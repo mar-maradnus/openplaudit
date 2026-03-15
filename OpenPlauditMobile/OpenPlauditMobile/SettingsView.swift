@@ -18,55 +18,38 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Theme.background.ignoresSafeArea()
-
-                ScrollView {
-                    VStack(spacing: 20) {
-                        // Audio Quality
-                        settingsSection("Audio Quality") {
-                            qualityCard
-                        }
-
-                        // Sync
-                        settingsSection("Sync") {
-                            syncCard
-                        }
-
-                        // Storage
-                        settingsSection("Storage") {
-                            storageCard
-                        }
-
-                        // About
-                        settingsSection("About") {
-                            aboutCard
-                        }
-
-                        Spacer().frame(height: 24)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                }
+            List {
+                settingsRow("Audio Quality") { qualityCard }
+                settingsRow("Sync") { syncCard }
+                settingsRow("Storage") { storageCard }
+                settingsRow("About") { aboutCard }
             }
+            .listStyle(.plain)
+            .listRowSpacing(12)
+            .scrollContentBackground(.hidden)
+            .scrollDismissesKeyboard(.interactively)
+            .background(Theme.background)
             .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .onAppear { calculateStorageSize() }
         }
     }
 
-    // MARK: - Section Builder
+    // MARK: - Row Builder
 
-    private func settingsSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+    private func settingsRow<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        Section {
+            content()
+                .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        } header: {
             Text(title)
                 .font(Theme.caption)
                 .foregroundStyle(Theme.textTertiary)
                 .textCase(.uppercase)
                 .tracking(0.8)
-                .padding(.leading, 4)
-
-            content()
         }
     }
 

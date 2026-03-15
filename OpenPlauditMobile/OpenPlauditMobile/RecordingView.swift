@@ -24,7 +24,7 @@ struct RecordingView: View {
                     .contentTransition(.numericText())
                     .animation(.easeInOut(duration: 0.3), value: recorder.durationSeconds)
 
-                Spacer().frame(height: 12)
+                Spacer().frame(height: 8)
 
                 // Status label
                 Text(recorder.isRecording ? "Recording" : "Ready")
@@ -33,14 +33,14 @@ struct RecordingView: View {
                     .textCase(.uppercase)
                     .tracking(1.5)
 
-                Spacer().frame(height: 48)
+                Spacer().frame(height: 32)
 
                 // Waveform
                 WaveformView(level: recorder.audioLevel, isRecording: recorder.isRecording)
-                    .frame(height: 64)
+                    .frame(height: 56)
                     .padding(.horizontal, 40)
 
-                Spacer().frame(height: 56)
+                Spacer().frame(height: 40)
 
                 // Record button
                 Button(action: toggleRecording) {
@@ -51,24 +51,24 @@ struct RecordingView: View {
                                 recorder.isRecording ? Theme.accent : Color.white.opacity(0.2),
                                 lineWidth: 3
                             )
-                            .frame(width: 88, height: 88)
+                            .frame(width: 80, height: 80)
 
                         // Pulsing glow when recording
                         if recorder.isRecording {
                             Circle()
                                 .fill(Theme.accent.opacity(0.15))
-                                .frame(width: 88, height: 88)
+                                .frame(width: 80, height: 80)
                         }
 
                         // Inner shape: circle → rounded square
                         if recorder.isRecording {
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
                                 .fill(Theme.accent)
-                                .frame(width: 28, height: 28)
+                                .frame(width: 26, height: 26)
                         } else {
                             Circle()
                                 .fill(Theme.accent)
-                                .frame(width: 64, height: 64)
+                                .frame(width: 58, height: 58)
                         }
                     }
                 }
@@ -76,7 +76,7 @@ struct RecordingView: View {
                 .accessibilityLabel(recorder.isRecording ? "Stop recording" : "Start recording")
                 .animation(.easeInOut(duration: 0.25), value: recorder.isRecording)
 
-                Spacer().frame(height: 48)
+                Spacer().frame(height: 32)
 
                 // Quality selector
                 if !recorder.isRecording {
@@ -91,9 +91,10 @@ struct RecordingView: View {
                         .padding(.top, 12)
                 }
 
-                Spacer()
+                Spacer().frame(minHeight: 20)
             }
             .padding(.horizontal, 24)
+            .safeAreaPadding(.bottom, 60)
         }
         .animation(.easeInOut(duration: 0.3), value: recorder.isRecording)
     }

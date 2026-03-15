@@ -38,8 +38,10 @@ enum Theme {
     static let displaySmall = Font.system(size: 28, weight: .light, design: .serif)
     /// Card titles, navigation.
     static let heading = Font.system(size: 20, weight: .regular, design: .serif)
-    /// Row titles.
+    /// Section labels in transcript/detail views.
     static let title = Font.system(size: 17, weight: .medium, design: .serif)
+    /// Row data — sans-serif, not a heading.
+    static let rowTitle = Font.system(size: 17, weight: .medium, design: .default)
 
     /// Body text — system sans.
     static let body = Font.system(size: 15, weight: .regular, design: .default)
