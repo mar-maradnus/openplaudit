@@ -15,8 +15,9 @@ struct AboutView: View {
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text("OpenPlaudit")
-                            .font(.title2.bold())
-                        Text("Version 0.4.0")
+                            .font(.system(size: 22, weight: .light, design: .serif))
+                            .fontWidth(.condensed)
+                        Text("Version 0.9.0")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -26,7 +27,7 @@ struct AboutView: View {
 
                 // Privacy rationale
                 Text("Why this exists")
-                    .font(.headline)
+                    .font(.system(size: 15, weight: .medium, design: .serif))
 
                 Text("""
                     OpenPlaudit exists for people who prefer their recordings to remain \
@@ -82,7 +83,7 @@ struct AboutView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Text("MIT License")
+                    Text("BSL 1.1")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Text("·")
