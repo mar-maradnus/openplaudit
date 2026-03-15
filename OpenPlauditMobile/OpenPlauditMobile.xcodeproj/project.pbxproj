@@ -1,0 +1,525 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1B2C3D4E5F6A7B8C9D0E1F2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F1E2D3C4B5A69788A1B2C3D4 /* Assets.xcassets */; };
+		101AED1C0DAF586667665A10 /* RecordingWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E601E0B801754AC0295F3B9 /* RecordingWidget.swift */; };
+		19C861E9BEF5538EE6DDF618 /* NetworkKit in Frameworks */ = {isa = PBXBuildFile; productRef = 8CCC3BB56E2AE78317A16C9E /* NetworkKit */; };
+		19D50C1EB542B20062CA05BC /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3112BE082BCA25E97FC47D15 /* RecordingView.swift */; };
+		2891DC5A12872C20C0F3CDA2 /* TranscriptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F777DCC103C907F232091B65 /* TranscriptView.swift */; };
+		3351F2155637B362B0D06D33 /* RecordIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67DA476EE535E79071B3344B /* RecordIntent.swift */; };
+		5B67C04D3BD590166570D389 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89B20FFFD539F33BD9C2780A /* App.swift */; };
+		653AEB7FF49CFF6DE8DC7DB5 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B0143BE9A22334ACC8C7A74 /* SettingsView.swift */; };
+		85EAE9FBC7BDF405971FF980 /* SharedKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4EC936E9063ACAF5629C1526 /* SharedKit */; };
+		A52E45F755A298655B9714AC /* RecordingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD4CD37850479822A9B61916 /* RecordingListView.swift */; };
+		C3A133A47EBD0B910CC5CDF0 /* Recorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEC72988D051A2E194A7B893 /* Recorder.swift */; };
+		CE878751C2B008E814B50D61 /* SyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33E775272AE21744E4E96063 /* SyncManager.swift */; };
+		D7E1A2B3F4C8901234567890 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7E1A2B3F4C89012ABCDEF01 /* Theme.swift */; };
+		E26C15DCFB579CA4B83427D1 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3742491A7A7E5811837A58 /* LiveActivityManager.swift */; };
+		F39C2393A583D2C9E9C98300 /* RecordingModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69817E5B34148816FF8C1885 /* RecordingModel.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		00F0F54BE39C47E7D7F89299 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0B21E91BE6A39E1663A7AC36 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 15DC7D77235D87BA3FD87B0E;
+			remoteInfo = OpenPlauditMobile;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		1B0143BE9A22334ACC8C7A74 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		1E1A5493CA4333105BEB0AFC /* NetworkKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = NetworkKit; path = ../Sources/NetworkKit; sourceTree = SOURCE_ROOT; };
+		1EE05B20B9EC12C64DD51E6E /* OpenPlauditMobile.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenPlauditMobile.entitlements; sourceTree = "<group>"; };
+		2E3742491A7A7E5811837A58 /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
+		3112BE082BCA25E97FC47D15 /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
+		33E775272AE21744E4E96063 /* SyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncManager.swift; sourceTree = "<group>"; };
+		67DA476EE535E79071B3344B /* RecordIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordIntent.swift; sourceTree = "<group>"; };
+		69817E5B34148816FF8C1885 /* RecordingModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingModel.swift; sourceTree = "<group>"; };
+		89B20FFFD539F33BD9C2780A /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
+		8E601E0B801754AC0295F3B9 /* RecordingWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingWidget.swift; sourceTree = "<group>"; };
+		9E4010B7E602D7CC70FF9D40 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		A477AE0E36A10BDDC2E503C7 /* SharedKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SharedKit; path = ../Sources/SharedKit; sourceTree = SOURCE_ROOT; };
+		AEC72988D051A2E194A7B893 /* Recorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Recorder.swift; sourceTree = "<group>"; };
+		D7E1A2B3F4C89012ABCDEF01 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		DD4CD37850479822A9B61916 /* RecordingListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingListView.swift; sourceTree = "<group>"; };
+		E09425DD62896109D9814E61 /* RecordingWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = RecordingWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		F777DCC103C907F232091B65 /* TranscriptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptView.swift; sourceTree = "<group>"; };
+		F1E2D3C4B5A69788A1B2C3D4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F806F2A3DD400B062D0CFBF6 /* OpenPlauditMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OpenPlauditMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4ADCF795FA8A26618229E24F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				85EAE9FBC7BDF405971FF980 /* SharedKit in Frameworks */,
+				19C861E9BEF5538EE6DDF618 /* NetworkKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXResourcesBuildPhase section */
+		B2C3D4E5F6A7B8C9D0E1F2A3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1B2C3D4E5F6A7B8C9D0E1F2 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXGroup section */
+		22D49FC5B6B245E1AC134180 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				1E1A5493CA4333105BEB0AFC /* NetworkKit */,
+				A477AE0E36A10BDDC2E503C7 /* SharedKit */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		3F1D33EB09F268710BEB231D /* Intents */ = {
+			isa = PBXGroup;
+			children = (
+				67DA476EE535E79071B3344B /* RecordIntent.swift */,
+			);
+			path = Intents;
+			sourceTree = "<group>";
+		};
+		427F2FC75207E722C7EAD737 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				F806F2A3DD400B062D0CFBF6 /* OpenPlauditMobile.app */,
+				E09425DD62896109D9814E61 /* RecordingWidget.appex */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		92E3C815CCD408E22DA18CB0 /* OpenPlauditMobile */ = {
+			isa = PBXGroup;
+			children = (
+				89B20FFFD539F33BD9C2780A /* App.swift */,
+				F1E2D3C4B5A69788A1B2C3D4 /* Assets.xcassets */,
+				9E4010B7E602D7CC70FF9D40 /* Info.plist */,
+				2E3742491A7A7E5811837A58 /* LiveActivityManager.swift */,
+				1EE05B20B9EC12C64DD51E6E /* OpenPlauditMobile.entitlements */,
+				AEC72988D051A2E194A7B893 /* Recorder.swift */,
+				DD4CD37850479822A9B61916 /* RecordingListView.swift */,
+				69817E5B34148816FF8C1885 /* RecordingModel.swift */,
+				3112BE082BCA25E97FC47D15 /* RecordingView.swift */,
+				1B0143BE9A22334ACC8C7A74 /* SettingsView.swift */,
+				33E775272AE21744E4E96063 /* SyncManager.swift */,
+				D7E1A2B3F4C89012ABCDEF01 /* Theme.swift */,
+				F777DCC103C907F232091B65 /* TranscriptView.swift */,
+			);
+			path = OpenPlauditMobile;
+			sourceTree = "<group>";
+		};
+		D2D9A3F76920CAF8DE2554E8 = {
+			isa = PBXGroup;
+			children = (
+				3F1D33EB09F268710BEB231D /* Intents */,
+				92E3C815CCD408E22DA18CB0 /* OpenPlauditMobile */,
+				22D49FC5B6B245E1AC134180 /* Packages */,
+				E939FC3B831F51D49104FDF4 /* Widgets */,
+				427F2FC75207E722C7EAD737 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		E939FC3B831F51D49104FDF4 /* Widgets */ = {
+			isa = PBXGroup;
+			children = (
+				8E601E0B801754AC0295F3B9 /* RecordingWidget.swift */,
+			);
+			path = Widgets;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		15DC7D77235D87BA3FD87B0E /* OpenPlauditMobile */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8AB566499A3EB34E7D26FA3F /* Build configuration list for PBXNativeTarget "OpenPlauditMobile" */;
+			buildPhases = (
+				C5A198E670C9B2476F34AF60 /* Sources */,
+				4ADCF795FA8A26618229E24F /* Frameworks */,
+				B2C3D4E5F6A7B8C9D0E1F2A3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = OpenPlauditMobile;
+			packageProductDependencies = (
+				4EC936E9063ACAF5629C1526 /* SharedKit */,
+				8CCC3BB56E2AE78317A16C9E /* NetworkKit */,
+			);
+			productName = OpenPlauditMobile;
+			productReference = F806F2A3DD400B062D0CFBF6 /* OpenPlauditMobile.app */;
+			productType = "com.apple.product-type.application";
+		};
+		784DAA7B9BB3CDDCF18AD080 /* RecordingWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 16308CB440AAE14FC2212086 /* Build configuration list for PBXNativeTarget "RecordingWidget" */;
+			buildPhases = (
+				DA42FB6AD6586ACD1F0AC008 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				7F962BFDF299BC535D5DFAB1 /* PBXTargetDependency */,
+			);
+			name = RecordingWidget;
+			packageProductDependencies = (
+			);
+			productName = RecordingWidget;
+			productReference = E09425DD62896109D9814E61 /* RecordingWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		0B21E91BE6A39E1663A7AC36 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					15DC7D77235D87BA3FD87B0E = {
+						DevelopmentTeam = 4Z5DVBGQ95;
+					};
+					784DAA7B9BB3CDDCF18AD080 = {
+						DevelopmentTeam = 4Z5DVBGQ95;
+					};
+				};
+			};
+			buildConfigurationList = D3316CC94BB41C31D53C1058 /* Build configuration list for PBXProject "OpenPlauditMobile" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = D2D9A3F76920CAF8DE2554E8;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				B5C3401D7E06588DC4D8A9BB /* XCLocalSwiftPackageReference "../Sources/NetworkKit" */,
+				F7885C94FF9177BBE71B47B3 /* XCLocalSwiftPackageReference "../Sources/SharedKit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 427F2FC75207E722C7EAD737 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				15DC7D77235D87BA3FD87B0E /* OpenPlauditMobile */,
+				784DAA7B9BB3CDDCF18AD080 /* RecordingWidget */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C5A198E670C9B2476F34AF60 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5B67C04D3BD590166570D389 /* App.swift in Sources */,
+				E26C15DCFB579CA4B83427D1 /* LiveActivityManager.swift in Sources */,
+				3351F2155637B362B0D06D33 /* RecordIntent.swift in Sources */,
+				C3A133A47EBD0B910CC5CDF0 /* Recorder.swift in Sources */,
+				A52E45F755A298655B9714AC /* RecordingListView.swift in Sources */,
+				F39C2393A583D2C9E9C98300 /* RecordingModel.swift in Sources */,
+				19D50C1EB542B20062CA05BC /* RecordingView.swift in Sources */,
+				653AEB7FF49CFF6DE8DC7DB5 /* SettingsView.swift in Sources */,
+				CE878751C2B008E814B50D61 /* SyncManager.swift in Sources */,
+				D7E1A2B3F4C8901234567890 /* Theme.swift in Sources */,
+				2891DC5A12872C20C0F3CDA2 /* TranscriptView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA42FB6AD6586ACD1F0AC008 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				101AED1C0DAF586667665A10 /* RecordingWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		7F962BFDF299BC535D5DFAB1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 15DC7D77235D87BA3FD87B0E /* OpenPlauditMobile */;
+			targetProxy = 00F0F54BE39C47E7D7F89299 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		071F9A733ABFF3F669F1DE8A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		33705C174D949B57C991A3B7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4Z5DVBGQ95;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.9.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.openplaudit.mobile.widget;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		49D62BCABC722C46D15D2450 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4Z5DVBGQ95;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 0.9.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.openplaudit.mobile.widget;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		59EA6C258CE492049940AC74 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = OpenPlauditMobile/OpenPlauditMobile.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4Z5DVBGQ95;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = OpenPlauditMobile/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.9.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.openplaudit.mobile;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		844EBE52CC55E1FACF8F16AF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = OpenPlauditMobile/OpenPlauditMobile.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 4Z5DVBGQ95;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = OpenPlauditMobile/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.9.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.openplaudit.mobile;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		BA44E32BDFD3C90E26AC528F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		16308CB440AAE14FC2212086 /* Build configuration list for PBXNativeTarget "RecordingWidget" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				49D62BCABC722C46D15D2450 /* Debug */,
+				33705C174D949B57C991A3B7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		8AB566499A3EB34E7D26FA3F /* Build configuration list for PBXNativeTarget "OpenPlauditMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				59EA6C258CE492049940AC74 /* Debug */,
+				844EBE52CC55E1FACF8F16AF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D3316CC94BB41C31D53C1058 /* Build configuration list for PBXProject "OpenPlauditMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				071F9A733ABFF3F669F1DE8A /* Debug */,
+				BA44E32BDFD3C90E26AC528F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		B5C3401D7E06588DC4D8A9BB /* XCLocalSwiftPackageReference "../Sources/NetworkKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Sources/NetworkKit;
+		};
+		F7885C94FF9177BBE71B47B3 /* XCLocalSwiftPackageReference "../Sources/SharedKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Sources/SharedKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4EC936E9063ACAF5629C1526 /* SharedKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SharedKit;
+		};
+		8CCC3BB56E2AE78317A16C9E /* NetworkKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = NetworkKit;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 0B21E91BE6A39E1663A7AC36 /* Project object */;
+}
