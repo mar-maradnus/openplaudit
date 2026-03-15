@@ -14,80 +14,207 @@ struct SettingsView: View {
     @State private var pairingCode: String = ""
     @State private var isPairing: Bool = false
     @State private var pairingError: String?
-    @State private var storageSize: String = "Calculating…"
+    @State private var storageSize: String = "Calculating..."
 
     var body: some View {
         NavigationStack {
-            Form {
-                // Audio Quality
-                Section {
-                    Picker("Quality", selection: $audioQuality) {
-                        ForEach(AudioQuality.allCases) { q in
-                            Text(q.rawValue).tag(q.rawValue)
+            ZStack {
+                Theme.background.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // Audio Quality
+                        settingsSection("Audio Quality") {
+                            qualityCard
                         }
-                    }
-                } header: {
-                    Text("Audio Quality")
-                } footer: {
-                    Text(currentQuality.description)
-                }
 
-                // Sync
-                Section {
-                    if pairedMacID.isEmpty {
-                        TextField("6-digit code from Mac", text: $pairingCode)
-                            .keyboardType(.numberPad)
-                            .textContentType(.oneTimeCode)
-
-                        Button("Pair with Mac") {
-                            pairWithMac()
+                        // Sync
+                        settingsSection("Sync") {
+                            syncCard
                         }
-                        .disabled(pairingCode.count != 6 || isPairing)
 
-                        if let error = pairingError {
-                            Text(error)
-                                .font(.caption)
-                                .foregroundStyle(.red)
+                        // Storage
+                        settingsSection("Storage") {
+                            storageCard
                         }
-                    } else {
-                        LabeledContent("Paired Mac:", value: pairedMacName.isEmpty ? "Mac" : pairedMacName)
 
-                        Toggle("Auto-sync", isOn: $autoSync)
-
-                        Button("Unpair", role: .destructive) {
-                            unpair()
+                        // About
+                        settingsSection("About") {
+                            aboutCard
                         }
-                    }
-                } header: {
-                    Text("Sync")
-                } footer: {
-                    if pairedMacID.isEmpty {
-                        Text("Open Settings → Companion on your Mac to get a pairing code.")
-                    }
-                }
 
-                // Storage
-                Section {
-                    LabeledContent("Local recordings:", value: storageSize)
-
-                    Button("Clear Cache", role: .destructive) {
-                        clearCache()
+                        Spacer().frame(height: 24)
                     }
-                } header: {
-                    Text("Storage")
-                }
-
-                // About
-                Section {
-                    LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.9.0")
-                } header: {
-                    Text("About")
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
                 }
             }
             .navigationTitle("Settings")
+            .toolbarColorScheme(.dark, for: .navigationBar)
             .onAppear { calculateStorageSize() }
         }
     }
+
+    // MARK: - Section Builder
+
+    private func settingsSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(Theme.caption)
+                .foregroundStyle(Theme.textTertiary)
+                .textCase(.uppercase)
+                .tracking(0.8)
+                .padding(.leading, 4)
+
+            content()
+        }
+    }
+
+    // MARK: - Cards
+
+    private var qualityCard: some View {
+        GlassCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    ForEach(AudioQuality.allCases) { q in
+                        Button {
+                            audioQuality = q.rawValue
+                        } label: {
+                            VStack(spacing: 6) {
+                                Image(systemName: q == .voice ? "mic" : "music.note")
+                                    .font(.system(size: 18))
+                                Text(q.rawValue)
+                                    .font(Theme.caption)
+                            }
+                            .foregroundStyle(audioQuality == q.rawValue ? Theme.textPrimary : Theme.textTertiary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(audioQuality == q.rawValue ? Theme.surfaceElevated : Color.clear)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                Text(currentQuality.description)
+                    .font(Theme.subhead)
+                    .foregroundStyle(Theme.textTertiary)
+            }
+        }
+    }
+
+    private var syncCard: some View {
+        GlassCard {
+            VStack(alignment: .leading, spacing: 14) {
+                if pairedMacID.isEmpty {
+                    TextField("6-digit code from Mac", text: $pairingCode)
+                        .keyboardType(.numberPad)
+                        .textContentType(.oneTimeCode)
+                        .font(Theme.body)
+                        .foregroundStyle(Theme.textPrimary)
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .fill(Theme.surfaceElevated)
+                        )
+
+                    Button {
+                        pairWithMac()
+                    } label: {
+                        Text("Pair with Mac")
+                            .font(Theme.body)
+                            .fontWeight(.medium)
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .fill(pairingCode.count == 6 ? Theme.accent : Theme.surfaceElevated)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(pairingCode.count != 6 || isPairing)
+
+                    if let error = pairingError {
+                        Text(error)
+                            .font(Theme.caption)
+                            .foregroundStyle(Theme.statusFailed)
+                    }
+
+                    Text("Open Settings \u{2192} Companion on your Mac to get a pairing code.")
+                        .font(Theme.subhead)
+                        .foregroundStyle(Theme.textTertiary)
+                } else {
+                    HStack {
+                        Image(systemName: "laptopcomputer")
+                            .foregroundStyle(Theme.statusTranscribed)
+                        Text(pairedMacName.isEmpty ? "Mac" : pairedMacName)
+                            .font(Theme.body)
+                            .foregroundStyle(Theme.textPrimary)
+                        Spacer()
+                        StatusPill(status: "synced")
+                    }
+
+                    Toggle(isOn: $autoSync) {
+                        Text("Auto-sync")
+                            .font(Theme.body)
+                            .foregroundStyle(Theme.textPrimary)
+                    }
+                    .tint(Theme.accent)
+
+                    Button(role: .destructive) {
+                        unpair()
+                    } label: {
+                        Text("Unpair")
+                            .font(Theme.body)
+                            .foregroundStyle(Theme.statusFailed)
+                    }
+                }
+            }
+        }
+    }
+
+    private var storageCard: some View {
+        GlassCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Local recordings")
+                        .font(Theme.body)
+                        .foregroundStyle(Theme.textSecondary)
+                    Spacer()
+                    Text(storageSize)
+                        .font(Theme.mono)
+                        .foregroundStyle(Theme.textPrimary)
+                }
+
+                Button(role: .destructive) {
+                    clearCache()
+                } label: {
+                    Text("Clear Cache")
+                        .font(Theme.body)
+                        .foregroundStyle(Theme.statusFailed)
+                }
+            }
+        }
+    }
+
+    private var aboutCard: some View {
+        GlassCard {
+            HStack {
+                Text("Version")
+                    .font(Theme.body)
+                    .foregroundStyle(Theme.textSecondary)
+                Spacer()
+                Text(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.9.0")
+                    .font(Theme.mono)
+                    .foregroundStyle(Theme.textPrimary)
+            }
+        }
+    }
+
+    // MARK: - Logic
 
     private var currentQuality: AudioQuality {
         AudioQuality(rawValue: audioQuality) ?? .voice
@@ -101,7 +228,7 @@ struct SettingsView: View {
         let key = derivePairingKey(from: pairingCode)
         let keyData = key.withUnsafeBytes { Data($0) }
         try? KeychainHelper.save(key: "pairingKey", value: keyData.base64EncodedString())
-        pairedMacID = UUID().uuidString  // Will be updated on first connection
+        pairedMacID = UUID().uuidString
         pairedMacName = "Mac"
 
         isPairing = false

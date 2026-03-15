@@ -21,6 +21,7 @@ struct OpenPlauditMobileApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .preferredColorScheme(.dark)
         }
         .modelContainer(sharedModelContainer)
     }
@@ -28,22 +29,28 @@ struct OpenPlauditMobileApp: App {
 
 /// Root content view with tab navigation.
 struct ContentView: View {
+    @State private var selectedTab = 0
+
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             RecordingView()
                 .tabItem {
                     Label("Record", systemImage: "mic.fill")
                 }
+                .tag(0)
 
             RecordingListView()
                 .tabItem {
                     Label("Recordings", systemImage: "list.bullet")
                 }
+                .tag(1)
 
             SettingsView()
                 .tabItem {
-                    Label("Settings", systemImage: "gear")
+                    Label("Settings", systemImage: "gearshape")
                 }
+                .tag(2)
         }
+        .tint(Theme.accent)
     }
 }

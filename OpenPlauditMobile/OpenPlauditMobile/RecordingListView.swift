@@ -8,26 +8,63 @@ struct RecordingListView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
+            ZStack {
+                Theme.background.ignoresSafeArea()
+
                 if recordings.isEmpty {
-                    ContentUnavailableView("No Recordings",
-                        systemImage: "mic.slash",
-                        description: Text("Tap Record to capture your first recording."))
+                    emptyState
                 } else {
-                    List {
-                        ForEach(groupedByDate, id: \.key) { section in
-                            Section(header: Text(section.key)) {
-                                ForEach(section.recordings) { recording in
-                                    NavigationLink(destination: destinationView(for: recording)) {
-                                        RecordingRow(recording: recording)
-                                    }
-                                }
+                    ScrollView {
+                        LazyVStack(spacing: 12) {
+                            ForEach(groupedByDate, id: \.key) { section in
+                                sectionView(section)
                             }
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 24)
                     }
                 }
             }
             .navigationTitle("Recordings")
+            .toolbarColorScheme(.dark, for: .navigationBar)
+        }
+    }
+
+    // MARK: - Empty State
+
+    private var emptyState: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "waveform")
+                .font(.system(size: 40, weight: .ultraLight))
+                .foregroundStyle(Theme.textTertiary)
+            Text("No recordings yet")
+                .serifHeading(Theme.heading)
+                .foregroundStyle(Theme.textSecondary)
+            Text("Tap Record to capture your first recording.")
+                .font(Theme.subhead)
+                .foregroundStyle(Theme.textTertiary)
+        }
+    }
+
+    // MARK: - Sections
+
+    private func sectionView(_ section: DateSection) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(section.key)
+                .font(Theme.caption)
+                .foregroundStyle(Theme.textTertiary)
+                .textCase(.uppercase)
+                .tracking(0.8)
+                .padding(.leading, 4)
+                .padding(.top, 8)
+
+            ForEach(section.recordings) { recording in
+                NavigationLink(destination: destinationView(for: recording)) {
+                    RecordingRow(recording: recording)
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 
@@ -53,30 +90,56 @@ struct RecordingListView: View {
     }
 }
 
-private struct DateSection: Identifiable {
-    let key: String
-    let recordings: [RecordingModel]
-    var id: String { key }
-}
+// MARK: - Row
 
 struct RecordingRow: View {
     let recording: RecordingModel
 
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(timeString)
-                    .font(.headline)
-                Text(durationString)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+        GlassCard {
+            HStack(spacing: 14) {
+                // Time icon
+                ZStack {
+                    Circle()
+                        .fill(iconColor.opacity(0.12))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: iconName)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(iconColor)
+                }
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(timeString)
+                        .serifHeading(Theme.title)
+                        .foregroundStyle(Theme.textPrimary)
+                    Text(durationString)
+                        .font(Theme.mono)
+                        .foregroundStyle(Theme.textSecondary)
+                }
+
+                Spacer()
+
+                StatusPill(status: recording.status)
             }
-
-            Spacer()
-
-            StatusBadge(status: recording.status)
         }
-        .padding(.vertical, 4)
+    }
+
+    private var iconName: String {
+        switch recording.status {
+        case "transcribed": return "text.quote"
+        case "syncing", "transcribing": return "arrow.triangle.2.circlepath"
+        case "failed": return "exclamationmark.circle"
+        default: return "waveform"
+        }
+    }
+
+    private var iconColor: Color {
+        switch recording.status {
+        case "transcribed": return Theme.statusTranscribed
+        case "syncing", "synced", "transcribing": return Theme.statusSyncing
+        case "failed": return Theme.statusFailed
+        default: return Theme.statusPending
+        }
     }
 
     private var timeString: String {
@@ -87,84 +150,72 @@ struct RecordingRow: View {
 
     private var durationString: String {
         let total = Int(recording.durationSeconds)
-        let minutes = total / 60
-        let seconds = total % 60
-        return String(format: "%dm %02ds", minutes, seconds)
+        if total >= 3600 {
+            return String(format: "%dh %02dm", total / 3600, (total % 3600) / 60)
+        }
+        return String(format: "%dm %02ds", total / 60, total % 60)
     }
 }
 
-struct StatusBadge: View {
-    let status: String
+// MARK: - Detail
 
-    var body: some View {
-        HStack(spacing: 4) {
-            Circle()
-                .fill(statusColor)
-                .frame(width: 8, height: 8)
-            Text(statusLabel)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private var statusColor: Color {
-        switch status {
-        case "recorded": return .orange
-        case "syncing": return .blue
-        case "synced": return .blue
-        case "transcribing": return .purple
-        case "transcribed": return .green
-        case "failed": return .red
-        default: return .gray
-        }
-    }
-
-    private var statusLabel: String {
-        switch status {
-        case "recorded": return "Recorded"
-        case "syncing": return "Syncing…"
-        case "synced": return "Synced"
-        case "transcribing": return "Transcribing…"
-        case "transcribed": return "Transcribed"
-        case "failed": return "Failed"
-        default: return status.capitalized
-        }
-    }
-}
-
-/// Simple detail view for recordings without transcripts.
 struct RecordingDetailView: View {
     let recording: RecordingModel
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text(recording.filename)
-                .font(.headline)
+        ZStack {
+            Theme.background.ignoresSafeArea()
 
-            HStack(spacing: 24) {
-                Label(durationString, systemImage: "clock")
-                Label(sizeString, systemImage: "doc")
+            VStack(spacing: 24) {
+                Spacer().frame(height: 20)
+
+                // Icon
+                ZStack {
+                    Circle()
+                        .fill(Theme.surface)
+                        .frame(width: 72, height: 72)
+                    Image(systemName: "waveform")
+                        .font(.system(size: 28, weight: .light))
+                        .foregroundStyle(Theme.textSecondary)
+                }
+
+                Text(recording.filename)
+                    .serifHeading(Theme.heading)
+                    .foregroundStyle(Theme.textPrimary)
+                    .multilineTextAlignment(.center)
+
+                HStack(spacing: 24) {
+                    Label(durationString, systemImage: "clock")
+                    Label(sizeString, systemImage: "doc")
+                }
+                .font(Theme.subhead)
+                .foregroundStyle(Theme.textSecondary)
+
+                StatusPill(status: recording.status)
+
+                Spacer()
             }
-            .foregroundStyle(.secondary)
-
-            StatusBadge(status: recording.status)
-
-            Spacer()
+            .padding(.horizontal, 24)
         }
-        .padding()
-        .navigationTitle("Recording")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarColorScheme(.dark, for: .navigationBar)
     }
 
     private var durationString: String {
         let total = Int(recording.durationSeconds)
-        let minutes = total / 60
-        let seconds = total % 60
-        return String(format: "%d:%02d", minutes, seconds)
+        return String(format: "%d:%02d", total / 60, total % 60)
     }
 
     private var sizeString: String {
         let mb = Double(recording.sizeBytes) / 1_048_576.0
         return String(format: "%.1f MB", mb)
     }
+}
+
+// MARK: - Supporting Types
+
+private struct DateSection: Identifiable {
+    let key: String
+    let recordings: [RecordingModel]
+    var id: String { key }
 }

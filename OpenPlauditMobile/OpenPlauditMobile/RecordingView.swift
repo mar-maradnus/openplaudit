@@ -10,69 +10,130 @@ struct RecordingView: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 32) {
+        ZStack {
+            Theme.background.ignoresSafeArea()
+
+            VStack(spacing: 0) {
                 Spacer()
 
                 // Timer
                 Text(formattedDuration)
-                    .font(.system(size: 56, weight: .light, design: .monospaced))
+                    .serifHeading(Theme.displayLarge)
+                    .foregroundStyle(recorder.isRecording ? Theme.textPrimary : Theme.textTertiary)
                     .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .animation(.easeInOut(duration: 0.3), value: recorder.durationSeconds)
 
-                // Waveform indicator
+                Spacer().frame(height: 12)
+
+                // Status label
+                Text(recorder.isRecording ? "Recording" : "Ready")
+                    .font(Theme.subhead)
+                    .foregroundStyle(recorder.isRecording ? Theme.accent : Theme.textTertiary)
+                    .textCase(.uppercase)
+                    .tracking(1.5)
+
+                Spacer().frame(height: 48)
+
+                // Waveform
                 WaveformView(level: recorder.audioLevel, isRecording: recorder.isRecording)
-                    .frame(height: 60)
-                    .padding(.horizontal, 32)
+                    .frame(height: 64)
+                    .padding(.horizontal, 40)
 
-                // Record / Stop button
+                Spacer().frame(height: 56)
+
+                // Record button
                 Button(action: toggleRecording) {
                     ZStack {
+                        // Outer ring
                         Circle()
-                            .fill(recorder.isRecording ? .red : .red.opacity(0.85))
-                            .frame(width: 80, height: 80)
+                            .strokeBorder(
+                                recorder.isRecording ? Theme.accent : Color.white.opacity(0.2),
+                                lineWidth: 3
+                            )
+                            .frame(width: 88, height: 88)
 
+                        // Pulsing glow when recording
                         if recorder.isRecording {
-                            RoundedRectangle(cornerRadius: 4)
-                                .fill(.white)
+                            Circle()
+                                .fill(Theme.accent.opacity(0.15))
+                                .frame(width: 88, height: 88)
+                        }
+
+                        // Inner shape: circle → rounded square
+                        if recorder.isRecording {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(Theme.accent)
                                 .frame(width: 28, height: 28)
                         } else {
                             Circle()
-                                .fill(.white)
-                                .frame(width: 28, height: 28)
+                                .fill(Theme.accent)
+                                .frame(width: 64, height: 64)
                         }
                     }
                 }
+                .buttonStyle(.plain)
                 .accessibilityLabel(recorder.isRecording ? "Stop recording" : "Start recording")
+                .animation(.easeInOut(duration: 0.25), value: recorder.isRecording)
 
-                // Quality picker
+                Spacer().frame(height: 48)
+
+                // Quality selector
                 if !recorder.isRecording {
-                    HStack {
-                        Picker("Quality", selection: $selectedQuality) {
-                            ForEach(AudioQuality.allCases) { q in
-                                Text(q.rawValue).tag(q)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .frame(width: 200)
-
-                        Text(selectedQuality == .voice ? "16kHz" : "48kHz")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
+                    qualityPicker
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
 
                 if let error = errorMessage {
                     Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
+                        .font(Theme.caption)
+                        .foregroundStyle(Theme.statusFailed)
+                        .padding(.top, 12)
                 }
 
                 Spacer()
             }
-            .navigationTitle("Record")
-            .navigationBarTitleDisplayMode(.inline)
+            .padding(.horizontal, 24)
+        }
+        .animation(.easeInOut(duration: 0.3), value: recorder.isRecording)
+    }
+
+    // MARK: - Subviews
+
+    private var qualityPicker: some View {
+        HStack(spacing: 16) {
+            ForEach(AudioQuality.allCases) { q in
+                Button {
+                    selectedQuality = q
+                } label: {
+                    VStack(spacing: 4) {
+                        Text(q.rawValue)
+                            .font(Theme.caption)
+                            .foregroundStyle(selectedQuality == q ? Theme.textPrimary : Theme.textTertiary)
+                        Text(q == .voice ? "16 kHz" : "48 kHz")
+                            .font(Theme.caption)
+                            .foregroundStyle(Theme.textTertiary)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(selectedQuality == q ? Theme.surfaceElevated : Color.clear)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .strokeBorder(
+                                        selectedQuality == q ? Theme.border : Color.clear,
+                                        lineWidth: 0.5
+                                    )
+                            )
+                    )
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
+
+    // MARK: - Formatting
 
     private var formattedDuration: String {
         let total = Int(recorder.durationSeconds)
@@ -81,6 +142,8 @@ struct RecordingView: View {
         let seconds = total % 60
         return String(format: "%02d:%02d:%02d", hours, minutes, seconds)
     }
+
+    // MARK: - Actions
 
     private func toggleRecording() {
         if recorder.isRecording {
@@ -102,7 +165,6 @@ struct RecordingView: View {
     private func stopRecording() {
         do {
             let recording = try recorder.stop()
-            // Save to SwiftData
             let model = RecordingModel(
                 filename: recording.wavPath.lastPathComponent,
                 durationSeconds: recording.durationSeconds,
@@ -116,32 +178,48 @@ struct RecordingView: View {
     }
 }
 
-/// Simple waveform visualization based on audio level.
+// MARK: - Waveform
+
 struct WaveformView: View {
     let level: Float
     let isRecording: Bool
 
+    private let barCount = 28
+
     var body: some View {
         GeometryReader { geo in
-            HStack(spacing: 3) {
-                ForEach(0..<20, id: \.self) { i in
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(isRecording ? .red : .gray.opacity(0.3))
-                        .frame(width: (geo.size.width - 57) / 20, height: barHeight(index: i, totalHeight: geo.size.height))
+            HStack(spacing: 2.5) {
+                ForEach(0..<barCount, id: \.self) { i in
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(barColor(index: i))
+                        .frame(
+                            width: barWidth(geo: geo),
+                            height: barHeight(index: i, totalHeight: geo.size.height)
+                        )
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
     }
 
+    private func barWidth(geo: GeometryProxy) -> CGFloat {
+        let totalSpacing = CGFloat(barCount - 1) * 2.5
+        return (geo.size.width - totalSpacing) / CGFloat(barCount)
+    }
+
+    private func barColor(index: Int) -> Color {
+        guard isRecording else { return Theme.surfaceElevated }
+        let centerDistance = abs(CGFloat(index) - CGFloat(barCount) / 2.0) / (CGFloat(barCount) / 2.0)
+        return Theme.accent.opacity(0.4 + (1.0 - centerDistance) * 0.6 * Double(min(level * 6, 1.0)))
+    }
+
     private func barHeight(index: Int, totalHeight: CGFloat) -> CGFloat {
-        guard isRecording else { return 4 }
-        let base: CGFloat = 4
-        let maxExtra = totalHeight - base
-        // Create a wave pattern modulated by the audio level
-        let phase = Double(index) * 0.3
-        let wave = (sin(phase + Double(level) * 10) + 1) / 2
-        let amplitude = CGFloat(min(level * 8, 1.0))
-        return base + maxExtra * CGFloat(wave) * amplitude
+        guard isRecording else { return 3 }
+        let minH: CGFloat = 3
+        let maxExtra = totalHeight - minH
+        let phase = Double(index) * 0.35
+        let wave = (sin(phase + Double(level) * 12) + 1) / 2
+        let amplitude = CGFloat(min(level * 7, 1.0))
+        return minH + maxExtra * CGFloat(wave) * amplitude
     }
 }

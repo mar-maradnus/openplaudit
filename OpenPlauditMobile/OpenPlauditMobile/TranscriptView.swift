@@ -15,57 +15,76 @@ struct TranscriptView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                if let tx = transcript {
-                    // Summary section
-                    if let summary = tx.summary {
-                        Section {
-                            Text(summary.content)
-                                .font(.body)
-                        } header: {
-                            Label("Summary", systemImage: "doc.text")
-                                .font(.headline)
+        ZStack {
+            Theme.background.ignoresSafeArea()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    if let tx = transcript {
+                        // Summary
+                        if let summary = tx.summary {
+                            transcriptSection("Summary", icon: "doc.text") {
+                                Text(summary.content)
+                                    .font(Theme.body)
+                                    .foregroundStyle(Theme.textPrimary)
+                                    .lineSpacing(4)
+                            }
                         }
-                        .padding(.bottom, 8)
 
-                        Divider()
-                    }
-
-                    // Mind map outline
-                    if let mindmap = tx.mindmap, !mindmap.isEmpty {
-                        Section {
-                            Text(mindmap)
-                                .font(.system(.body, design: .monospaced))
-                                .textSelection(.enabled)
-                        } header: {
-                            Label("Mind Map", systemImage: "brain")
-                                .font(.headline)
+                        // Mind map
+                        if let mindmap = tx.mindmap, !mindmap.isEmpty {
+                            transcriptSection("Mind Map", icon: "brain") {
+                                Text(mindmap)
+                                    .font(Theme.mono)
+                                    .foregroundStyle(Theme.textSecondary)
+                                    .textSelection(.enabled)
+                            }
                         }
-                        .padding(.bottom, 8)
 
-                        Divider()
-                    }
-
-                    // Transcript segments
-                    Section {
-                        ForEach(Array(tx.segments.enumerated()), id: \.offset) { _, segment in
-                            SegmentRow(segment: segment)
+                        // Segments
+                        transcriptSection("Transcript", icon: "text.quote") {
+                            LazyVStack(alignment: .leading, spacing: 16) {
+                                ForEach(Array(tx.segments.enumerated()), id: \.offset) { _, segment in
+                                    SegmentRow(segment: segment)
+                                }
+                            }
                         }
-                    } header: {
-                        Label("Transcript", systemImage: "text.quote")
-                            .font(.headline)
+                    } else {
+                        VStack(spacing: 16) {
+                            Spacer().frame(height: 60)
+                            Image(systemName: "text.badge.xmark")
+                                .font(.system(size: 36, weight: .ultraLight))
+                                .foregroundStyle(Theme.textTertiary)
+                            Text("No transcript yet")
+                                .serifHeading(Theme.heading)
+                                .foregroundStyle(Theme.textSecondary)
+                            Text("Sync with your Mac to receive the transcript.")
+                                .font(Theme.subhead)
+                                .foregroundStyle(Theme.textTertiary)
+                        }
+                        .frame(maxWidth: .infinity)
                     }
-                } else {
-                    ContentUnavailableView("No Transcript",
-                        systemImage: "text.badge.xmark",
-                        description: Text("Transcript not yet available. Sync with your Mac to receive it."))
                 }
+                .padding(20)
             }
-            .padding()
         }
         .navigationTitle(recording.filename)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarColorScheme(.dark, for: .navigationBar)
+    }
+
+    private func transcriptSection<Content: View>(_ title: String, icon: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(title, systemImage: icon)
+                .serifHeading(Theme.title)
+                .foregroundStyle(Theme.textPrimary)
+
+            content()
+
+            Divider()
+                .overlay(Theme.border)
+                .padding(.top, 4)
+        }
     }
 }
 
@@ -74,22 +93,23 @@ private struct SegmentRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack {
+            HStack(spacing: 8) {
                 if let speaker = segment.speaker {
                     Text(speaker)
-                        .font(.caption)
+                        .font(Theme.caption)
                         .fontWeight(.semibold)
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Theme.statusSyncing)
                 }
                 Text(formatTimestamp(segment.start))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .font(Theme.mono)
+                    .foregroundStyle(Theme.textTertiary)
             }
             Text(segment.text)
-                .font(.body)
+                .font(Theme.body)
+                .foregroundStyle(Theme.textPrimary)
+                .lineSpacing(3)
                 .textSelection(.enabled)
         }
-        .padding(.vertical, 4)
     }
 
     private func formatTimestamp(_ seconds: Double) -> String {
