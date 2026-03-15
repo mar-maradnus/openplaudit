@@ -24,7 +24,8 @@ public func derivePairingKey(from code: String) -> SymmetricKey {
 /// Generate a random 32-byte nonce for HMAC challenge.
 public func generateNonce() -> Data {
     var bytes = [UInt8](repeating: 0, count: 32)
-    _ = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+    let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
+    precondition(status == errSecSuccess, "SecRandomCopyBytes failed with status \(status)")
     return Data(bytes)
 }
 

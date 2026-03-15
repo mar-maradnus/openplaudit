@@ -9,9 +9,9 @@
     <key>CFBundleIdentifier</key>
     <string>com.openplaudit.app</string>
     <key>CFBundleVersion</key>
-    <string>0.4.0</string>
+    <string>0.9.0</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.4.0</string>
+    <string>0.9.0</string>
     <key>NSBluetoothAlwaysUsageDescription</key>
     <string>OpenPlaudit needs Bluetooth to sync recordings from your PLAUD Note device.</string>
     <key>NSMicrophoneUsageDescription</key>

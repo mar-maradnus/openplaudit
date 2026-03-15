@@ -82,27 +82,29 @@ public final class SyncClient: @unchecked Sendable {
 
     /// Stop browsing and disconnect.
     public func stop() {
-        browser?.cancel()
-        browser = nil
-        connection?.cancel()
-        connection = nil
-        state = .disconnected
+        queue.async { [self] in
+            browser?.cancel()
+            browser = nil
+            connection?.cancel()
+            connection = nil
+            state = .disconnected
+        }
     }
 
     /// Upload recordings to the connected Mac.
     public func uploadRecordings(_ recordings: [(meta: RecordingMeta, wavData: Data)]) {
-        guard let connection else {
-            log.warning("Cannot upload — not connected")
-            return
-        }
-        // Send manifest
-        let manifests = recordings.map(\.meta)
-        sendMessage(.recordingManifest(manifests), on: connection)
+        queue.async { [self] in
+            guard let connection else {
+                log.warning("Cannot upload — not connected")
+                return
+            }
+            let manifests = recordings.map(\.meta)
+            sendMessage(.recordingManifest(manifests), on: connection)
 
-        // Upload each recording in chunks
-        for (i, recording) in recordings.enumerated() {
-            state = .syncing(current: i + 1, total: recordings.count)
-            uploadRecording(recording.meta, data: recording.wavData, on: connection)
+            for (i, recording) in recordings.enumerated() {
+                state = .syncing(current: i + 1, total: recordings.count)
+                uploadRecording(recording.meta, data: recording.wavData, on: connection)
+            }
         }
     }
 
@@ -135,34 +137,43 @@ public final class SyncClient: @unchecked Sendable {
     }
 
     private func startHandshake(on connection: NWConnection) {
-        // Send hello
+        // Protocol: client sends hello → server sends challenge → client sends authResponse
+        //           → server sends authResponse (proof) → client verifies → connected
         sendMessage(.hello(deviceName: deviceName, deviceID: deviceID), on: connection)
 
-        // Wait for auth challenge
         receiveMessage(on: connection) { [weak self] message in
             guard let self else { return }
             guard case .authChallenge(let nonce) = message else {
                 log.warning("Expected authChallenge, got \(String(describing: message))")
                 self.state = .error("Unexpected server response")
+                connection.cancel()
                 return
             }
 
-            // Respond with HMAC
             let hmac = computeHMAC(data: nonce, key: self.pairingKey)
             self.sendMessage(.authResponse(hmac: hmac), on: connection)
 
-            // Wait for ack
-            self.receiveMessage(on: connection) { ackMsg in
-                if case .ack = ackMsg {
-                    log.info("Authenticated with Mac")
+            // Verify server proof (mutual authentication)
+            self.receiveMessage(on: connection) { proofMsg in
+                if case .authResponse(let serverProof) = proofMsg {
+                    let expectedProof = computeHMAC(data: Data(nonce.reversed()), key: self.pairingKey)
+                    guard verifyHMAC(mac: serverProof, data: Data(nonce.reversed()), key: self.pairingKey) else {
+                        log.error("Server proof invalid — possible rogue service")
+                        self.state = .error("Server authentication failed")
+                        connection.cancel()
+                        return
+                    }
+                    log.info("Mutually authenticated with Mac")
                     self.state = .connected
                     self.startReceiveLoop(on: connection)
-                } else if case .error(let msg) = ackMsg {
+                } else if case .error(let msg) = proofMsg {
                     log.error("Auth rejected: \(msg)")
                     self.state = .error("Authentication failed")
                     connection.cancel()
                 } else {
-                    log.warning("Unexpected post-auth message: \(String(describing: ackMsg))")
+                    log.warning("Unexpected post-auth message: \(String(describing: proofMsg))")
+                    self.state = .error("Unexpected server response")
+                    connection.cancel()
                 }
             }
         }
@@ -181,6 +192,7 @@ public final class SyncClient: @unchecked Sendable {
             case .error(let msg):
                 log.error("Server error: \(msg)")
                 self.state = .error(msg)
+                return // Stop the loop on error
             default:
                 break
             }
@@ -217,6 +229,9 @@ public final class SyncClient: @unchecked Sendable {
         }
     }
 
+    /// Maximum allowed frame size (16 MB).
+    private static let maxFrameSize: UInt32 = 16 * 1024 * 1024
+
     private func receiveMessage(on connection: NWConnection, handler: @escaping (SyncMessage) -> Void) {
         connection.receive(minimumIncompleteLength: 4, maximumLength: 4) { data, _, isComplete, error in
             guard let data, data.count == 4 else {
@@ -227,6 +242,11 @@ public final class SyncClient: @unchecked Sendable {
                 return
             }
             guard let length = frameLength(from: data) else { return }
+            guard length <= Self.maxFrameSize else {
+                log.error("Frame too large: \(length) bytes")
+                connection.cancel()
+                return
+            }
             let payloadLength = Int(length)
 
             connection.receive(minimumIncompleteLength: payloadLength, maximumLength: payloadLength) { payload, _, _, error in

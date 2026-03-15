@@ -24,7 +24,7 @@ struct FrameEncodingTests {
         // Decode the JSON payload
         let payload = frame.dropFirst(4)
         let decoded = try decodeMessage(from: Data(payload))
-        if case .hello(let name, let id) = decoded {
+        if case .hello(let name, let id, _) = decoded {
             #expect(name == "Test")
             #expect(id == "123")
         } else {

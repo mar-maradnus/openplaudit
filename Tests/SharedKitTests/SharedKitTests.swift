@@ -138,7 +138,7 @@ struct SyncMessageTests {
         let msg = SyncMessage.hello(deviceName: "iPhone 15", deviceID: "abc-123")
         let data = try JSONEncoder().encode(msg)
         let decoded = try JSONDecoder().decode(SyncMessage.self, from: data)
-        if case .hello(let name, let id) = decoded {
+        if case .hello(let name, let id, _) = decoded {
             #expect(name == "iPhone 15")
             #expect(id == "abc-123")
         } else {
@@ -228,5 +228,38 @@ struct SyncMessageTests {
         } else {
             Issue.record("Expected .recordingManifest case")
         }
+    }
+
+    @Test func ackRoundtrip() throws {
+        let msg = SyncMessage.ack(messageID: "auth")
+        let data = try JSONEncoder().encode(msg)
+        let decoded = try JSONDecoder().decode(SyncMessage.self, from: data)
+        if case .ack(let id) = decoded {
+            #expect(id == "auth")
+        } else {
+            Issue.record("Expected .ack case")
+        }
+    }
+
+    @Test func helloWithProtocolVersion() throws {
+        let msg = SyncMessage.hello(deviceName: "Test", deviceID: "123")
+        let data = try JSONEncoder().encode(msg)
+        let decoded = try JSONDecoder().decode(SyncMessage.self, from: data)
+        if case .hello(let name, let id, let version) = decoded {
+            #expect(name == "Test")
+            #expect(id == "123")
+            #expect(version == syncProtocolVersion)
+        } else {
+            Issue.record("Expected .hello case")
+        }
+    }
+
+    @Test func dataFieldsEncodeAsBase64() throws {
+        let nonce = Data([0xDE, 0xAD, 0xBE, 0xEF])
+        let msg = SyncMessage.authChallenge(nonce: nonce)
+        let data = try JSONEncoder().encode(msg)
+        let json = String(data: data, encoding: .utf8)!
+        // Foundation JSONEncoder encodes Data as base64 by default
+        #expect(json.contains("3q2+7w==")) // base64 of DEADBEEF
     }
 }

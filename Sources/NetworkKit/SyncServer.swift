@@ -36,8 +36,24 @@ public final class SyncServer: @unchecked Sendable {
     public weak var delegate: SyncServerDelegate?
 
     // State for receiving chunked uploads
-    private var pendingUploads: [String: Data] = [:]
+    private var pendingUploads: [String: URL] = [:]  // recordingID → temp file URL
+    private var pendingUploadSizes: [String: Int] = [:]
     private var receiveBuffer = Data()
+    private var isAuthenticated = false
+
+    /// Maximum allowed frame size (16 MB — generous for JSON + 64KB chunk).
+    private static let maxFrameSize: UInt32 = 16 * 1024 * 1024
+    /// Maximum allowed upload size per recording (500 MB).
+    private static let maxUploadSize = 500 * 1024 * 1024
+    /// Maximum concurrent pending uploads.
+    private static let maxPendingUploads = 10
+
+    /// Sanitise a network-sourced identifier for safe use in file paths.
+    private static func sanitisePathComponent(_ input: String) -> String? {
+        let sanitised = input.replacingOccurrences(of: "[^a-zA-Z0-9_\\-]", with: "_", options: .regularExpression)
+        guard !sanitised.isEmpty, sanitised != ".", sanitised != ".." else { return nil }
+        return sanitised
+    }
 
     public init(pairingKey: SymmetricKey, outputDir: URL) {
         self.pairingKey = pairingKey
@@ -76,17 +92,29 @@ public final class SyncServer: @unchecked Sendable {
 
     /// Stop the server and close any active connection.
     public func stop() {
-        listener?.cancel()
-        listener = nil
-        activeConnection?.cancel()
-        activeConnection = nil
+        queue.async { [self] in
+            listener?.cancel()
+            listener = nil
+            activeConnection?.cancel()
+            activeConnection = nil
+            for (id, _) in pendingUploads { cleanupPendingUpload(id) }
+        }
+    }
+
+    private func cleanupPendingUpload(_ id: String) {
+        if let url = pendingUploads.removeValue(forKey: id) {
+            try? FileManager.default.removeItem(at: url)
+        }
+        pendingUploadSizes.removeValue(forKey: id)
     }
 
     /// Send a transcript back to the connected companion.
     public func sendTranscript(recordingID: String, transcript: TranscriptionResult) {
-        guard let connection = activeConnection else { return }
-        let message = SyncMessage.transcriptReady(recordingID: recordingID, transcript: transcript)
-        sendMessage(message, on: connection)
+        queue.async { [self] in
+            guard let connection = activeConnection else { return }
+            let message = SyncMessage.transcriptReady(recordingID: recordingID, transcript: transcript)
+            sendMessage(message, on: connection)
+        }
     }
 
     // MARK: - Connection Handling
@@ -103,7 +131,14 @@ public final class SyncServer: @unchecked Sendable {
             switch state {
             case .ready:
                 log.info("Companion connected")
+                self?.isAuthenticated = false
                 self?.startAuthChallenge(on: connection)
+                // Auto-cancel unauthenticated connections after 10 seconds
+                self?.queue.asyncAfter(deadline: .now() + 10) { [weak self] in
+                    guard let self, self.activeConnection === connection, !self.isAuthenticated else { return }
+                    log.warning("Auth timeout — cancelling unauthenticated connection")
+                    connection.cancel()
+                }
             case .failed(let error):
                 log.error("Connection failed: \(error.localizedDescription)")
                 self?.activeConnection = nil
@@ -120,31 +155,29 @@ public final class SyncServer: @unchecked Sendable {
     }
 
     private func startAuthChallenge(on connection: NWConnection) {
-        let nonce = generateNonce()
-        let challenge = SyncMessage.authChallenge(nonce: nonce)
-        sendMessage(challenge, on: connection)
-
+        // Protocol: client sends hello → server sends challenge → client sends authResponse → server sends ack
         receiveMessage(on: connection) { [weak self] message in
             guard let self else { return }
-            switch message {
-            case .hello(let name, let deviceID):
-                // Client sends hello first, then we challenge
-                // Re-send challenge after receiving hello
-                self.sendMessage(SyncMessage.authChallenge(nonce: nonce), on: connection)
-                self.receiveMessage(on: connection) { authMsg in
-                    self.handleAuthResponse(authMsg, nonce: nonce, deviceName: name, deviceID: deviceID, on: connection)
-                }
-            case .authResponse(let hmac):
-                // Direct auth response (deviceID from previous hello)
-                self.handleAuthResponse(message, nonce: nonce, deviceName: "Companion", deviceID: "", on: connection)
-            default:
-                log.warning("Unexpected message during auth: \(String(describing: message))")
+            guard case .hello(let name, let deviceID, _) = message else {
+                log.warning("Expected hello, got \(String(describing: message))")
                 connection.cancel()
+                return
+            }
+            log.info("Received hello from \(name)")
+
+            let nonce = generateNonce()
+            self.sendMessage(.authChallenge(nonce: nonce), on: connection)
+
+            // Server also proves it holds the key: HMAC over reversed nonce
+            let serverProof = computeHMAC(data: Data(nonce.reversed()), key: self.pairingKey)
+
+            self.receiveMessage(on: connection) { authMsg in
+                self.handleAuthResponse(authMsg, nonce: nonce, serverProof: serverProof, deviceName: name, deviceID: deviceID, on: connection)
             }
         }
     }
 
-    private func handleAuthResponse(_ message: SyncMessage, nonce: Data, deviceName: String, deviceID: String, on connection: NWConnection) {
+    private func handleAuthResponse(_ message: SyncMessage, nonce: Data, serverProof: Data, deviceName: String, deviceID: String, on connection: NWConnection) {
         guard case .authResponse(let hmac) = message else {
             log.warning("Expected authResponse, got \(String(describing: message))")
             connection.cancel()
@@ -158,8 +191,10 @@ public final class SyncServer: @unchecked Sendable {
             return
         }
 
+        // Mutual auth: server proves it holds the key by sending HMAC over reversed nonce
         log.info("Companion authenticated: \(deviceName)")
-        sendMessage(.ack(messageID: "auth"), on: connection)
+        isAuthenticated = true
+        sendMessage(.authResponse(hmac: serverProof), on: connection)
         delegate?.syncServerDidConnect(deviceName: deviceName, deviceID: deviceID)
         startReceiveLoop(on: connection)
     }
@@ -167,17 +202,21 @@ public final class SyncServer: @unchecked Sendable {
     private func startReceiveLoop(on connection: NWConnection) {
         receiveMessage(on: connection) { [weak self] message in
             guard let self else { return }
-            self.handleMessage(message, on: connection)
-            self.startReceiveLoop(on: connection)
+            let shouldContinue = self.handleMessage(message, on: connection)
+            if shouldContinue {
+                self.startReceiveLoop(on: connection)
+            }
         }
     }
 
-    private func handleMessage(_ message: SyncMessage, on connection: NWConnection) {
+    /// Returns true if the receive loop should continue.
+    @discardableResult
+    private func handleMessage(_ message: SyncMessage, on connection: NWConnection) -> Bool {
         switch message {
         case .recordingManifest(let manifests):
-            // Determine which recordings we need (don't have yet)
             let needed = manifests.filter { meta in
-                let path = self.outputDir.appendingPathComponent(meta.filename)
+                guard let safeName = Self.sanitisePathComponent(meta.id) else { return false }
+                let path = self.outputDir.appendingPathComponent("\(safeName).wav")
                 return !FileManager.default.fileExists(atPath: path.path)
             }
             let neededIDs = needed.map(\.id)
@@ -185,40 +224,87 @@ public final class SyncServer: @unchecked Sendable {
             sendMessage(.ack(messageID: "need:\(neededIDs.joined(separator: ","))"), on: connection)
 
         case .uploadChunk(let recordingID, let offset, let data):
-            if pendingUploads[recordingID] == nil {
-                pendingUploads[recordingID] = Data()
+            guard let safeID = Self.sanitisePathComponent(recordingID) else {
+                sendMessage(.error("Invalid recording ID"), on: connection)
+                return false
             }
-            pendingUploads[recordingID]?.append(data)
+            // Create temp file for new upload
+            if pendingUploads[safeID] == nil {
+                guard pendingUploads.count < Self.maxPendingUploads else {
+                    sendMessage(.error("Too many concurrent uploads"), on: connection)
+                    return false
+                }
+                let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("upload-\(safeID).tmp")
+                FileManager.default.createFile(atPath: tempURL.path, contents: nil)
+                pendingUploads[safeID] = tempURL
+                pendingUploadSizes[safeID] = 0
+            }
+            // Validate offset matches current size
+            let currentSize = pendingUploadSizes[safeID] ?? 0
+            guard offset == currentSize else {
+                log.error("Offset mismatch for \(safeID): expected \(currentSize), got \(offset)")
+                sendMessage(.error("Offset mismatch for \(recordingID)"), on: connection)
+                return false
+            }
+            // Enforce size limit
+            guard currentSize + data.count <= Self.maxUploadSize else {
+                log.error("Upload size limit exceeded for \(safeID)")
+                cleanupPendingUpload(safeID)
+                sendMessage(.error("Upload too large"), on: connection)
+                return false
+            }
+            // Append to temp file
+            if let fileHandle = try? FileHandle(forWritingTo: pendingUploads[safeID]!) {
+                fileHandle.seekToEndOfFile()
+                fileHandle.write(data)
+                fileHandle.closeFile()
+                pendingUploadSizes[safeID] = currentSize + data.count
+            }
 
         case .uploadComplete(let recordingID, let expectedSHA):
-            guard let uploadData = pendingUploads.removeValue(forKey: recordingID) else {
+            guard let safeID = Self.sanitisePathComponent(recordingID),
+                  let tempURL = pendingUploads.removeValue(forKey: safeID) else {
                 sendMessage(.error("No pending upload for \(recordingID)"), on: connection)
-                return
+                return true
             }
-            let actualSHA = sha256Hex(uploadData)
-            guard actualSHA == expectedSHA else {
-                log.error("SHA256 mismatch for \(recordingID): expected \(expectedSHA), got \(actualSHA)")
-                sendMessage(.error("SHA256 mismatch for \(recordingID)"), on: connection)
-                return
-            }
+            pendingUploadSizes.removeValue(forKey: safeID)
             do {
+                let uploadData = try Data(contentsOf: tempURL)
+                try? FileManager.default.removeItem(at: tempURL)
+
+                let actualSHA = sha256Hex(uploadData)
+                guard actualSHA == expectedSHA else {
+                    log.error("SHA256 mismatch for \(safeID): expected \(expectedSHA), got \(actualSHA)")
+                    sendMessage(.error("SHA256 mismatch for \(recordingID)"), on: connection)
+                    return true
+                }
                 try FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
-                let wavPath = outputDir.appendingPathComponent("\(recordingID).wav")
+                let wavPath = outputDir.appendingPathComponent("\(safeID).wav")
+                // Verify resolved path is inside outputDir
+                guard wavPath.standardizedFileURL.path.hasPrefix(outputDir.standardizedFileURL.path) else {
+                    sendMessage(.error("Invalid recording ID"), on: connection)
+                    return true
+                }
                 try uploadData.write(to: wavPath, options: .atomic)
-                log.info("Recording \(recordingID) saved (\(uploadData.count) bytes)")
+                log.info("Recording \(safeID) saved (\(uploadData.count) bytes)")
                 sendMessage(.ack(messageID: recordingID), on: connection)
                 delegate?.syncServerDidReceiveRecording(id: recordingID, wavPath: wavPath)
             } catch {
-                log.error("Failed to save recording \(recordingID): \(error.localizedDescription)")
+                log.error("Failed to save recording \(safeID): \(error.localizedDescription)")
                 sendMessage(.error("Failed to save: \(error.localizedDescription)"), on: connection)
             }
 
         case .ack:
             break // Client acknowledged our message
 
+        case .error(let msg):
+            log.error("Client error: \(msg)")
+            return false // Stop the loop
+
         default:
             log.warning("Unexpected message: \(String(describing: message))")
         }
+        return true
     }
 
     // MARK: - Framed Message I/O
@@ -237,7 +323,6 @@ public final class SyncServer: @unchecked Sendable {
     }
 
     private func receiveMessage(on connection: NWConnection, handler: @escaping (SyncMessage) -> Void) {
-        // Read the 4-byte length prefix first
         connection.receive(minimumIncompleteLength: 4, maximumLength: 4) { [weak self] data, _, isComplete, error in
             guard let data, data.count == 4 else {
                 if isComplete {
@@ -247,9 +332,13 @@ public final class SyncServer: @unchecked Sendable {
                 return
             }
             guard let length = frameLength(from: data) else { return }
+            guard length <= Self.maxFrameSize else {
+                log.error("Frame too large: \(length) bytes (max \(Self.maxFrameSize))")
+                connection.cancel()
+                return
+            }
             let payloadLength = Int(length)
 
-            // Now read the JSON payload
             connection.receive(minimumIncompleteLength: payloadLength, maximumLength: payloadLength) { payload, _, _, error in
                 guard let payload else {
                     if let error { log.error("Receive payload failed: \(error.localizedDescription)") }

@@ -455,6 +455,7 @@ struct SettingsView: View {
                             Button("Cancel") {
                                 pairingCode = nil
                                 isPairing = false
+                                try? KeychainHelper.delete(key: "companion.pairing_key")
                             }
                         } else {
                             Button("Pair iPhone") {
@@ -500,6 +501,17 @@ struct SettingsView: View {
         let key = derivePairingKey(from: code)
         let keyData = key.withUnsafeBytes { Data($0) }
         try? KeychainHelper.save(key: "companion.pairing_key", value: keyData.base64EncodedString())
+
+        // Auto-cancel after 60 seconds if not paired
+        let currentCode = code
+        DispatchQueue.main.asyncAfter(deadline: .now() + 60) {
+            // Only cancel if still showing the same code and not yet paired
+            if pairingCode == currentCode && companionPairedDeviceID.isEmpty {
+                pairingCode = nil
+                isPairing = false
+                try? KeychainHelper.delete(key: "companion.pairing_key")
+            }
+        }
     }
 
     private func unpairCompanion() {

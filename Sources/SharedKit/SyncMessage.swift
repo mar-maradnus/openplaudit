@@ -5,9 +5,12 @@
 
 import Foundation
 
+/// Current sync protocol version. Increment on breaking changes.
+public let syncProtocolVersion: Int = 1
+
 /// Sync protocol message envelope.
 public enum SyncMessage: Codable, Sendable {
-    case hello(deviceName: String, deviceID: String)
+    case hello(deviceName: String, deviceID: String, protocolVersion: Int = syncProtocolVersion)
     case authChallenge(nonce: Data)
     case authResponse(hmac: Data)
     case recordingManifest([RecordingMeta])

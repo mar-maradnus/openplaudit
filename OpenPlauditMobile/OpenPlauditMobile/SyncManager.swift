@@ -8,6 +8,7 @@ import CryptoKit
 import SwiftData
 import NetworkKit
 import SharedKit
+import Security
 import os
 
 private let log = Logger(subsystem: "com.openplaudit.mobile", category: "sync")
@@ -23,7 +24,7 @@ final class SyncManager: ObservableObject, SyncClientDelegate {
     }
 
     func startIfPaired() {
-        guard let keyString = UserDefaults.standard.string(forKey: "pairingKey"),
+        guard let keyString = loadKeychainItem("pairingKey"),
               let keyData = Data(base64Encoded: keyString) else { return }
 
         let key = SymmetricKey(data: keyData)
@@ -95,5 +96,20 @@ final class SyncManager: ObservableObject, SyncClientDelegate {
             model.status = "transcribed"
             log.info("Transcript received for \(recordingID)")
         }
+    }
+
+    /// Read a value from the iOS Keychain.
+    private func loadKeychainItem(_ key: String) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: key,
+            kSecAttrService as String: "com.openplaudit.mobile",
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 }

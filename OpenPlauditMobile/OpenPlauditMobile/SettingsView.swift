@@ -4,6 +4,45 @@ import SwiftUI
 import CryptoKit
 import NetworkKit
 import SharedKit
+import Security
+
+/// Minimal Keychain helper for iOS (no external dependencies).
+private enum KeychainStore {
+    static func save(key: String, data: String) {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: key,
+            kSecAttrService as String: "com.openplaudit.mobile",
+            kSecValueData as String: Data(data.utf8),
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
+        ]
+        SecItemDelete(query as CFDictionary)
+        SecItemAdd(query as CFDictionary, nil)
+    }
+
+    static func load(key: String) -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: key,
+            kSecAttrService as String: "com.openplaudit.mobile",
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    static func delete(key: String) {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: key,
+            kSecAttrService as String: "com.openplaudit.mobile",
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+}
 
 struct SettingsView: View {
     @AppStorage("audioQuality") private var audioQuality: String = AudioQuality.voice.rawValue
@@ -98,12 +137,9 @@ struct SettingsView: View {
         isPairing = true
         pairingError = nil
 
-        // Derive the pairing key from the code
         let key = derivePairingKey(from: pairingCode)
         let keyData = key.withUnsafeBytes { Data($0) }
-
-        // Store in UserDefaults for now (Keychain on iOS requires entitlements)
-        UserDefaults.standard.set(keyData.base64EncodedString(), forKey: "pairingKey")
+        KeychainStore.save(key: "pairingKey", data: keyData.base64EncodedString())
         pairedMacID = UUID().uuidString  // Will be updated on first connection
         pairedMacName = "Mac"
 
@@ -114,7 +150,7 @@ struct SettingsView: View {
     private func unpair() {
         pairedMacID = ""
         pairedMacName = ""
-        UserDefaults.standard.removeObject(forKey: "pairingKey")
+        KeychainStore.delete(key: "pairingKey")
     }
 
     private func calculateStorageSize() {
