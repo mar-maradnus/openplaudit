@@ -5,9 +5,10 @@ options:
     iOS: "17.0"
 
 packages:
-  OpenPlauditRepo:
-    url: https://github.com/placeholder/openplaudit
-    from: "0.1.0"
+  SharedKit:
+    path: ../Sources/SharedKit
+  NetworkKit:
+    path: ../Sources/NetworkKit
 
 targets:
   OpenPlauditMobile:
@@ -16,6 +17,9 @@ targets:
     sources:
       - OpenPlauditMobile
       - Intents
+    dependencies:
+      - package: SharedKit
+      - package: NetworkKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.openplaudit.mobile
@@ -25,6 +29,7 @@ targets:
         INFOPLIST_FILE: OpenPlauditMobile/Info.plist
         CODE_SIGN_ENTITLEMENTS: OpenPlauditMobile/OpenPlauditMobile.entitlements
         GENERATE_INFOPLIST_FILE: NO
+        DEVELOPMENT_TEAM: 4Z5DVBGQ95
 
   RecordingWidget:
     type: app-extension
@@ -40,6 +45,7 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "6.0"
         GENERATE_INFOPLIST_FILE: YES
+        DEVELOPMENT_TEAM: 4Z5DVBGQ95
 
 schemes:
   OpenPlauditMobile:
