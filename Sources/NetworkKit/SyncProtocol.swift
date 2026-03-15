@@ -34,3 +34,6 @@ public let syncServiceType = "_openplaudit._tcp"
 
 /// Default chunk size for recording uploads (64KB).
 public let uploadChunkSize = 64 * 1024
+
+/// Maximum allowed frame size (16 MB — generous for JSON + 64KB chunk).
+public let maxFrameSize: UInt32 = 16 * 1024 * 1024

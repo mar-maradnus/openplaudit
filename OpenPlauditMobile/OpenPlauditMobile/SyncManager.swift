@@ -8,7 +8,6 @@ import CryptoKit
 import SwiftData
 import NetworkKit
 import SharedKit
-import Security
 import os
 
 private let log = Logger(subsystem: "com.openplaudit.mobile", category: "sync")
@@ -24,7 +23,7 @@ final class SyncManager: ObservableObject, SyncClientDelegate {
     }
 
     func startIfPaired() {
-        guard let keyString = loadKeychainItem("pairingKey"),
+        guard let keyString = KeychainHelper.load(key: "pairingKey"),
               let keyData = Data(base64Encoded: keyString) else { return }
 
         let key = SymmetricKey(data: keyData)
@@ -46,7 +45,7 @@ final class SyncManager: ObservableObject, SyncClientDelegate {
         guard let modelContext else { return }
 
         let descriptor = FetchDescriptor<RecordingModel>(
-            predicate: #Predicate { $0.status == "recorded" }
+            predicate: #Predicate { $0.status == RecordingStatus.recorded.rawValue }
         )
         guard let pending = try? modelContext.fetch(descriptor), !pending.isEmpty else { return }
 
@@ -63,7 +62,7 @@ final class SyncManager: ObservableObject, SyncClientDelegate {
                 sizeBytes: model.sizeBytes,
                 status: .recorded
             )
-            model.status = "syncing"
+            model.status = RecordingStatus.syncing.rawValue
             return (meta: meta, wavData: data)
         }
 
@@ -93,23 +92,9 @@ final class SyncManager: ObservableObject, SyncClientDelegate {
                 return
             }
             model.transcriptJSON = try? JSONEncoder().encode(transcript)
-            model.status = "transcribed"
+            model.status = RecordingStatus.transcribed.rawValue
             log.info("Transcript received for \(recordingID)")
         }
     }
 
-    /// Read a value from the iOS Keychain.
-    private func loadKeychainItem(_ key: String) -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrAccount as String: key,
-            kSecAttrService as String: "com.openplaudit.mobile",
-            kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-        ]
-        var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
-    }
 }

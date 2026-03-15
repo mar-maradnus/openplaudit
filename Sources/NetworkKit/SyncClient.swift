@@ -156,7 +156,6 @@ public final class SyncClient: @unchecked Sendable {
             // Verify server proof (mutual authentication)
             self.receiveMessage(on: connection) { proofMsg in
                 if case .authResponse(let serverProof) = proofMsg {
-                    let expectedProof = computeHMAC(data: Data(nonce.reversed()), key: self.pairingKey)
                     guard verifyHMAC(mac: serverProof, data: Data(nonce.reversed()), key: self.pairingKey) else {
                         log.error("Server proof invalid — possible rogue service")
                         self.state = .error("Server authentication failed")
@@ -229,9 +228,6 @@ public final class SyncClient: @unchecked Sendable {
         }
     }
 
-    /// Maximum allowed frame size (16 MB).
-    private static let maxFrameSize: UInt32 = 16 * 1024 * 1024
-
     private func receiveMessage(on connection: NWConnection, handler: @escaping (SyncMessage) -> Void) {
         connection.receive(minimumIncompleteLength: 4, maximumLength: 4) { data, _, isComplete, error in
             guard let data, data.count == 4 else {
@@ -242,7 +238,7 @@ public final class SyncClient: @unchecked Sendable {
                 return
             }
             guard let length = frameLength(from: data) else { return }
-            guard length <= Self.maxFrameSize else {
+            guard length <= maxFrameSize else {
                 log.error("Frame too large: \(length) bytes")
                 connection.cancel()
                 return

@@ -35,14 +35,22 @@ public final class SyncServer: @unchecked Sendable {
     private let outputDir: URL
     public weak var delegate: SyncServerDelegate?
 
-    // State for receiving chunked uploads
-    private var pendingUploads: [String: URL] = [:]  // recordingID → temp file URL
-    private var pendingUploadSizes: [String: Int] = [:]
+    /// Tracks an in-progress chunked upload.
+    private struct PendingUpload {
+        let tempURL: URL
+        let fileHandle: FileHandle
+        var size: Int
+
+        func cleanup() {
+            fileHandle.closeFile()
+            try? FileManager.default.removeItem(at: tempURL)
+        }
+    }
+
+    private var pendingUploads: [String: PendingUpload] = [:]
     private var receiveBuffer = Data()
     private var isAuthenticated = false
 
-    /// Maximum allowed frame size (16 MB — generous for JSON + 64KB chunk).
-    private static let maxFrameSize: UInt32 = 16 * 1024 * 1024
     /// Maximum allowed upload size per recording (500 MB).
     private static let maxUploadSize = 500 * 1024 * 1024
     /// Maximum concurrent pending uploads.
@@ -102,10 +110,9 @@ public final class SyncServer: @unchecked Sendable {
     }
 
     private func cleanupPendingUpload(_ id: String) {
-        if let url = pendingUploads.removeValue(forKey: id) {
-            try? FileManager.default.removeItem(at: url)
+        if let upload = pendingUploads.removeValue(forKey: id) {
+            upload.cleanup()
         }
-        pendingUploadSizes.removeValue(forKey: id)
     }
 
     /// Send a transcript back to the connected companion.
@@ -126,6 +133,8 @@ public final class SyncServer: @unchecked Sendable {
         }
         activeConnection = connection
         receiveBuffer = Data()
+        // Clean up any pending uploads from a previous connection
+        for (id, _) in pendingUploads { cleanupPendingUpload(id) }
 
         connection.stateUpdateHandler = { [weak self] state in
             switch state {
@@ -141,9 +150,11 @@ public final class SyncServer: @unchecked Sendable {
                 }
             case .failed(let error):
                 log.error("Connection failed: \(error.localizedDescription)")
+                self?.isAuthenticated = false
                 self?.activeConnection = nil
                 self?.delegate?.syncServerDidDisconnect()
             case .cancelled:
+                self?.isAuthenticated = false
                 self?.activeConnection = nil
                 self?.delegate?.syncServerDidDisconnect()
             default:
@@ -158,8 +169,14 @@ public final class SyncServer: @unchecked Sendable {
         // Protocol: client sends hello → server sends challenge → client sends authResponse → server sends ack
         receiveMessage(on: connection) { [weak self] message in
             guard let self else { return }
-            guard case .hello(let name, let deviceID, _) = message else {
+            guard case .hello(let name, let deviceID, let version) = message else {
                 log.warning("Expected hello, got \(String(describing: message))")
+                connection.cancel()
+                return
+            }
+            guard version == syncProtocolVersion else {
+                log.warning("Protocol version mismatch: client=\(version), server=\(syncProtocolVersion)")
+                self.sendMessage(.error("Unsupported protocol version"), on: connection)
                 connection.cancel()
                 return
             }
@@ -228,7 +245,7 @@ public final class SyncServer: @unchecked Sendable {
                 sendMessage(.error("Invalid recording ID"), on: connection)
                 return false
             }
-            // Create temp file for new upload
+            // Create temp file and open persistent handle for new upload
             if pendingUploads[safeID] == nil {
                 guard pendingUploads.count < Self.maxPendingUploads else {
                     sendMessage(.error("Too many concurrent uploads"), on: connection)
@@ -236,62 +253,78 @@ public final class SyncServer: @unchecked Sendable {
                 }
                 let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("upload-\(safeID).tmp")
                 FileManager.default.createFile(atPath: tempURL.path, contents: nil)
-                pendingUploads[safeID] = tempURL
-                pendingUploadSizes[safeID] = 0
+                guard let fh = try? FileHandle(forWritingTo: tempURL) else {
+                    sendMessage(.error("Server error"), on: connection)
+                    return false
+                }
+                pendingUploads[safeID] = PendingUpload(tempURL: tempURL, fileHandle: fh, size: 0)
             }
+            guard var upload = pendingUploads[safeID] else { return true }
             // Validate offset matches current size
-            let currentSize = pendingUploadSizes[safeID] ?? 0
-            guard offset == currentSize else {
-                log.error("Offset mismatch for \(safeID): expected \(currentSize), got \(offset)")
-                sendMessage(.error("Offset mismatch for \(recordingID)"), on: connection)
+            guard offset == upload.size else {
+                log.error("Offset mismatch for \(safeID): expected \(upload.size), got \(offset)")
+                sendMessage(.error("Offset mismatch"), on: connection)
                 return false
             }
             // Enforce size limit
-            guard currentSize + data.count <= Self.maxUploadSize else {
+            guard upload.size + data.count <= Self.maxUploadSize else {
                 log.error("Upload size limit exceeded for \(safeID)")
                 cleanupPendingUpload(safeID)
                 sendMessage(.error("Upload too large"), on: connection)
                 return false
             }
-            // Append to temp file
-            if let fileHandle = try? FileHandle(forWritingTo: pendingUploads[safeID]!) {
-                fileHandle.seekToEndOfFile()
-                fileHandle.write(data)
-                fileHandle.closeFile()
-                pendingUploadSizes[safeID] = currentSize + data.count
-            }
+            // Append to temp file via persistent handle
+            upload.fileHandle.seekToEndOfFile()
+            upload.fileHandle.write(data)
+            upload.size += data.count
+            pendingUploads[safeID] = upload
 
         case .uploadComplete(let recordingID, let expectedSHA):
             guard let safeID = Self.sanitisePathComponent(recordingID),
-                  let tempURL = pendingUploads.removeValue(forKey: safeID) else {
-                sendMessage(.error("No pending upload for \(recordingID)"), on: connection)
+                  let upload = pendingUploads.removeValue(forKey: safeID) else {
+                sendMessage(.error("No pending upload"), on: connection)
                 return true
             }
-            pendingUploadSizes.removeValue(forKey: safeID)
+            upload.fileHandle.closeFile()
             do {
-                let uploadData = try Data(contentsOf: tempURL)
-                try? FileManager.default.removeItem(at: tempURL)
+                // Streaming SHA256 — reads in chunks, never loads entire file into memory
+                let readHandle = try FileHandle(forReadingFrom: upload.tempURL)
+                defer { readHandle.closeFile() }
+                var hasher = SHA256()
+                while true {
+                    let chunk = readHandle.readData(ofLength: 65536)
+                    if chunk.isEmpty { break }
+                    hasher.update(data: chunk)
+                }
+                let digest = hasher.finalize()
+                let actualSHA = digest.map { String(format: "%02x", $0) }.joined()
 
-                let actualSHA = sha256Hex(uploadData)
                 guard actualSHA == expectedSHA else {
                     log.error("SHA256 mismatch for \(safeID): expected \(expectedSHA), got \(actualSHA)")
-                    sendMessage(.error("SHA256 mismatch for \(recordingID)"), on: connection)
+                    try? FileManager.default.removeItem(at: upload.tempURL)
+                    sendMessage(.error("SHA256 mismatch"), on: connection)
                     return true
                 }
                 try FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
                 let wavPath = outputDir.appendingPathComponent("\(safeID).wav")
                 // Verify resolved path is inside outputDir
                 guard wavPath.standardizedFileURL.path.hasPrefix(outputDir.standardizedFileURL.path) else {
+                    try? FileManager.default.removeItem(at: upload.tempURL)
                     sendMessage(.error("Invalid recording ID"), on: connection)
                     return true
                 }
-                try uploadData.write(to: wavPath, options: .atomic)
-                log.info("Recording \(safeID) saved (\(uploadData.count) bytes)")
+                // Move instead of read+write — avoids loading into memory
+                if FileManager.default.fileExists(atPath: wavPath.path) {
+                    try FileManager.default.removeItem(at: wavPath)
+                }
+                try FileManager.default.moveItem(at: upload.tempURL, to: wavPath)
+                log.info("Recording \(safeID) saved (\(upload.size) bytes)")
                 sendMessage(.ack(messageID: recordingID), on: connection)
                 delegate?.syncServerDidReceiveRecording(id: recordingID, wavPath: wavPath)
             } catch {
                 log.error("Failed to save recording \(safeID): \(error.localizedDescription)")
-                sendMessage(.error("Failed to save: \(error.localizedDescription)"), on: connection)
+                try? FileManager.default.removeItem(at: upload.tempURL)
+                sendMessage(.error("Failed to save recording"), on: connection)
             }
 
         case .ack:
@@ -332,8 +365,8 @@ public final class SyncServer: @unchecked Sendable {
                 return
             }
             guard let length = frameLength(from: data) else { return }
-            guard length <= Self.maxFrameSize else {
-                log.error("Frame too large: \(length) bytes (max \(Self.maxFrameSize))")
+            guard length <= maxFrameSize else {
+                log.error("Frame too large: \(length) bytes (max \(maxFrameSize))")
                 connection.cancel()
                 return
             }

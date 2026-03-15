@@ -1,7 +1,7 @@
 /// Keychain helper for secure credential storage.
 ///
-/// Stores the PLAUD binding token in the macOS Keychain rather than
-/// plaintext TOML. Falls back to TOML for CLI compatibility.
+/// Cross-platform (macOS + iOS) Keychain wrapper for storing pairing keys,
+/// device tokens, and other sensitive credentials.
 
 import Foundation
 import Security

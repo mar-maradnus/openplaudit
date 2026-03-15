@@ -3,6 +3,7 @@
 
 import Foundation
 import Testing
+import SharedKit
 @testable import SyncEngine
 
 @Suite("loadConfig")
