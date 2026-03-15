@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy — OpenPlaudit</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg: #fafafa; --fg: #1a1a1a; --muted: #666; --border: #e5e5e5; --accent: #0066cc; }
+        @media (prefers-color-scheme: dark) {
+            :root { --bg: #111; --fg: #e5e5e5; --muted: #999; --border: #333; --accent: #4da3ff; }
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+            background: var(--bg); color: var(--fg); line-height: 1.7;
+            -webkit-font-smoothing: antialiased;
+        }
+        .container { max-width: 640px; margin: 0 auto; padding: 60px 24px 80px; }
+        h1 {
+            font-family: "Cormorant Garamond", Garamond, serif;
+            font-size: 2.4rem; font-weight: 300; margin-bottom: 8px;
+        }
+        .updated { color: var(--muted); font-size: 0.9rem; margin-bottom: 40px; }
+        h2 {
+            font-family: "Cormorant Garamond", Garamond, serif;
+            font-size: 1.4rem; font-weight: 400; margin: 36px 0 12px;
+        }
+        p, li { font-size: 0.95rem; margin-bottom: 12px; }
+        ul { padding-left: 20px; margin-bottom: 16px; }
+        li { margin-bottom: 6px; }
+        strong { font-weight: 600; }
+        table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 0.9rem; }
+        th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+        th { font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); text-align: center; font-size: 0.85rem; color: var(--muted); }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Privacy Policy</h1>
+    <p class="updated">OpenPlaudit — Last updated: 15 March 2026</p>
+
+    <h2>Summary</h2>
+    <p>OpenPlaudit processes all audio, transcription, speaker identification, and AI summarisation <strong>entirely on your devices</strong>. No audio, transcripts, or personal data are transmitted to any external server.</p>
+
+    <h2>Data Collection</h2>
+    <p>OpenPlaudit does <strong>not</strong> collect, transmit, or store any personal data on external servers. Specifically:</p>
+    <ul>
+        <li><strong>No analytics or telemetry.</strong> The app does not phone home.</li>
+        <li><strong>No accounts or sign-up.</strong> There are no user accounts.</li>
+        <li><strong>No cloud processing.</strong> All AI processing (transcription, diarization, summarisation, mind maps) runs locally on your Mac using on-device models.</li>
+        <li><strong>No advertising.</strong> There are no ads or ad-tracking SDKs.</li>
+    </ul>
+
+    <h2>Data Stored on Your Devices</h2>
+    <p>The following data is created and stored <strong>locally</strong> on your devices:</p>
+    <table>
+        <thead><tr><th>Data</th><th>Location</th><th>Purpose</th></tr></thead>
+        <tbody>
+            <tr><td>Audio recordings (WAV)</td><td>Mac: ~/Documents/OpenPlaudit/ · iPhone: app sandbox</td><td>Source audio for transcription</td></tr>
+            <tr><td>Transcripts (JSON)</td><td>Same directories</td><td>Whisper-generated text with timestamps</td></tr>
+            <tr><td>Speaker labels</td><td>Embedded in transcript JSON</td><td>Speaker diarization results</td></tr>
+            <tr><td>AI summaries and mind maps</td><td>Embedded in transcript JSON</td><td>LLM-generated content from local models</td></tr>
+            <tr><td>Pairing key</td><td>macOS/iOS Keychain</td><td>Authenticates the iPhone–Mac sync connection</td></tr>
+            <tr><td>App preferences</td><td>UserDefaults</td><td>Audio quality, sync settings, UI preferences</td></tr>
+            <tr><td>Whisper model files</td><td>App container / ~/.cache/openplaudit/</td><td>On-device speech recognition model</td></tr>
+        </tbody>
+    </table>
+
+    <h2>Local Network Sync</h2>
+    <p>When paired, the iPhone companion app syncs recordings to your Mac over your <strong>local Wi-Fi network</strong> using a direct TCP connection. This traffic never leaves your local network. The connection is authenticated using HMAC-SHA256 with a shared key established during one-time pairing.</p>
+    <p>No data is sent to Apple, Anthropic, OpenAI, or any other third party during sync.</p>
+
+    <h2>Bluetooth (macOS only)</h2>
+    <p>If you connect a PLAUD Note device, the Mac app communicates with it over Bluetooth Low Energy to download recordings. This is a direct device-to-device connection.</p>
+
+    <h2>Microphone Access</h2>
+    <p>The app requests microphone access to record audio. Microphone data is written directly to local storage and is never transmitted externally.</p>
+
+    <h2>Third-Party Services</h2>
+    <p>OpenPlaudit uses <strong>no</strong> third-party services, SDKs, or APIs. All dependencies are open-source libraries compiled into the app binary:</p>
+    <ul>
+        <li><strong>whisper.cpp</strong> — speech recognition (MIT licence)</li>
+        <li><strong>llama.cpp</strong> — local LLM inference (MIT licence)</li>
+    </ul>
+
+    <h2>Children's Privacy</h2>
+    <p>OpenPlaudit does not knowingly collect any information from children under 13.</p>
+
+    <h2>Data Deletion</h2>
+    <p>All data is stored on your devices. To delete it:</p>
+    <ul>
+        <li><strong>Mac:</strong> Delete recordings from ~/Documents/OpenPlaudit/ or use Settings → Storage → Clear Cache</li>
+        <li><strong>iPhone:</strong> Use Settings → Storage → Clear Cache, or delete the app (removes all app data)</li>
+        <li><strong>Pairing key:</strong> Unpairing in Settings removes the key from both devices' Keychains</li>
+    </ul>
+
+    <h2>Changes to This Policy</h2>
+    <p>If this policy changes, the updated version will be published at this URL. Material changes will be noted in the app's release notes.</p>
+
+    <h2>Contact</h2>
+    <p>For privacy questions: <a href="mailto:mar.maradnus@pm.me">mar.maradnus@pm.me</a></p>
+
+    <footer>
+        <a href="/">OpenPlaudit</a> · <a href="terms">Terms</a> · <a href="https://github.com/mar-maradnus/openplaudit">Source</a>
+    </footer>
+</div>
+</body>
+</html>
