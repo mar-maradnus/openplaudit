@@ -37,18 +37,16 @@ final class LiveActivityManager: ObservableObject {
 
     /// Update the elapsed time shown in the Live Activity.
     func updateElapsedTime(_ seconds: Int) {
+        guard let activity else { return }
         let state = RecordingActivityAttributes.ContentState(elapsedSeconds: seconds, isRecording: true)
-        Task {
-            await activity?.update(.init(state: state, staleDate: nil))
-        }
+        Task { await activity.update(.init(state: state, staleDate: nil)) }
     }
 
     /// End the Live Activity.
     func endActivity() {
+        guard let activity else { return }
+        self.activity = nil
         let state = RecordingActivityAttributes.ContentState(elapsedSeconds: 0, isRecording: false)
-        Task {
-            await activity?.end(.init(state: state, staleDate: nil), dismissalPolicy: .immediate)
-            activity = nil
-        }
+        Task { await activity.end(.init(state: state, staleDate: nil), dismissalPolicy: .immediate) }
     }
 }

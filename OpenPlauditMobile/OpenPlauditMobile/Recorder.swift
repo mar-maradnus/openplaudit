@@ -48,6 +48,57 @@ struct Recording: Sendable {
     let startedAt: Date
 }
 
+/// Thread-safe audio buffer that accumulates PCM data from the real-time audio thread.
+/// Not MainActor-isolated — safe to use from any thread including the real-time audio thread.
+final class AudioBuffer: @unchecked Sendable {
+    private let lock = NSLock()
+    private(set) var currentChunk = Data()
+    private(set) var sampleCount: Int = 0
+    private(set) var currentLevel: Float = 0
+
+    func append(_ data: Data, samples: Int, level: Float) {
+        lock.lock()
+        currentChunk.append(data)
+        sampleCount += samples
+        currentLevel = level
+        lock.unlock()
+    }
+
+    func drainChunk() -> Data? {
+        lock.lock()
+        guard !currentChunk.isEmpty else {
+            lock.unlock()
+            return nil
+        }
+        let data = currentChunk
+        currentChunk = Data()
+        lock.unlock()
+        return data
+    }
+
+    func readSampleCount() -> Int {
+        lock.lock()
+        let count = sampleCount
+        lock.unlock()
+        return count
+    }
+
+    func readLevel() -> Float {
+        lock.lock()
+        let level = currentLevel
+        lock.unlock()
+        return level
+    }
+
+    func reset() {
+        lock.lock()
+        currentChunk = Data()
+        sampleCount = 0
+        currentLevel = 0
+        lock.unlock()
+    }
+}
+
 /// Observable recorder for the iOS app.
 @MainActor
 final class Recorder: ObservableObject {
@@ -57,9 +108,7 @@ final class Recorder: ObservableObject {
 
     private var engine: AVAudioEngine?
     private var chunkPaths: [URL] = []
-    private var currentChunk = Data()
-    private var sampleCount: Int = 0
-    private let lock = NSLock()
+    private let audioBuffer = AudioBuffer()
     private var flushTimer: Timer?
     private var durationTimer: Timer?
     private var startedAt: Date?
@@ -94,51 +143,21 @@ final class Recorder: ObservableObject {
         )!
 
         let converter = AVAudioConverter(from: inputFormat, to: targetFormat)!
+        let buffer = self.audioBuffer
+        let channelCount = Int(quality.channels)
 
-        inputNode.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) { [weak self] buffer, _ in
-            guard let self else { return }
-
-            let ratio = quality.sampleRate / inputFormat.sampleRate
-            let frameCount = AVAudioFrameCount(Double(buffer.frameLength) * ratio)
-            guard frameCount > 0 else { return }
-
-            guard let convertedBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: frameCount) else { return }
-
-            var error: NSError?
-            let status = converter.convert(to: convertedBuffer, error: &error) { _, outStatus in
-                outStatus.pointee = .haveData
-                return buffer
-            }
-            guard status != .error, error == nil else { return }
-
-            // Update audio level for waveform display
-            let count = Int(convertedBuffer.frameLength)
-            if let floatData = convertedBuffer.floatChannelData?[0] {
-                var sum: Float = 0
-                for i in 0..<count { sum += abs(floatData[i]) }
-                let avg = sum / Float(max(count, 1))
-                DispatchQueue.main.async { self.audioLevel = avg }
-            }
-
-            // Convert Float32 to Int16 PCM
-            let channels = Int(quality.channels)
-            let totalSamples = count * channels
-            guard let floatData = convertedBuffer.floatChannelData else { return }
-
-            var int16Data = Data(capacity: totalSamples * 2)
-            for i in 0..<count {
-                for ch in 0..<channels {
-                    let sample = max(-1.0, min(1.0, floatData[ch][i]))
-                    var int16 = Int16(sample * 32767.0)
-                    withUnsafeBytes(of: &int16) { int16Data.append(contentsOf: $0) }
-                }
-            }
-
-            self.lock.lock()
-            self.currentChunk.append(int16Data)
-            self.sampleCount += count
-            self.lock.unlock()
-        }
+        // Tap handler is a free function to avoid inheriting @MainActor isolation.
+        // Closures defined inside @MainActor methods inherit that isolation in Swift 6,
+        // which crashes when the closure runs on the real-time audio thread.
+        let tapHandler = makeTapHandler(
+            quality: quality,
+            inputFormat: inputFormat,
+            targetFormat: targetFormat,
+            converter: converter,
+            buffer: buffer,
+            channelCount: channelCount
+        )
+        inputNode.installTap(onBus: 0, bufferSize: 4096, format: inputFormat, block: tapHandler)
 
         try engine.start()
         self.engine = engine
@@ -148,17 +167,16 @@ final class Recorder: ObservableObject {
 
         // Periodic flush to disk
         flushTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
-            self?.flushToDisk()
+            Task { @MainActor in self?.flushToDisk() }
         }
 
-        // Duration timer
+        // Duration + level timer — polls AudioBuffer from main thread
         durationTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            guard let self else { return }
-            self.lock.lock()
-            let samples = self.sampleCount
-            self.lock.unlock()
+            let samples = buffer.readSampleCount()
+            let level = buffer.readLevel()
             Task { @MainActor in
-                self.durationSeconds = Double(samples) / self.quality.sampleRate
+                self?.durationSeconds = Double(samples) / quality.sampleRate
+                self?.audioLevel = level
             }
         }
 
@@ -180,6 +198,7 @@ final class Recorder: ObservableObject {
 
         flushToDisk()
 
+        let totalSamples = audioBuffer.readSampleCount()
         let wavPath = try assembleWAV()
         let fileSize = (try? FileManager.default.attributesOfItem(atPath: wavPath.path)[.size] as? Int) ?? 0
         let started = startedAt ?? Date()
@@ -188,11 +207,11 @@ final class Recorder: ObservableObject {
         durationSeconds = 0
         audioLevel = 0
 
-        log.info("Recording stopped: \(self.durationSeconds)s")
+        log.info("Recording stopped: \(Double(totalSamples) / self.quality.sampleRate)s")
 
         return Recording(
             wavPath: wavPath,
-            durationSeconds: Double(sampleCount) / quality.sampleRate,
+            durationSeconds: Double(totalSamples) / quality.sampleRate,
             sizeBytes: fileSize,
             startedAt: started
         )
@@ -213,8 +232,7 @@ final class Recorder: ObservableObject {
             try? FileManager.default.removeItem(at: path)
         }
         chunkPaths = []
-        currentChunk = Data()
-        sampleCount = 0
+        audioBuffer.reset()
         isRecording = false
         durationSeconds = 0
         audioLevel = 0
@@ -223,22 +241,13 @@ final class Recorder: ObservableObject {
     // MARK: - Internal
 
     private func flushToDisk() {
-        lock.lock()
-        guard !currentChunk.isEmpty else {
-            lock.unlock()
-            return
-        }
-        let data = currentChunk
-        currentChunk = Data()
-        lock.unlock()
+        guard let data = audioBuffer.drainChunk() else { return }
 
         let chunkIndex = chunkPaths.count
         let chunkPath = outputDir.appendingPathComponent("chunk_\(chunkIndex).pcm")
         do {
             try data.write(to: chunkPath, options: .atomic)
-            lock.lock()
             chunkPaths.append(chunkPath)
-            lock.unlock()
         } catch {
             log.error("Failed to flush chunk \(chunkIndex): \(error.localizedDescription)")
         }
@@ -249,12 +258,9 @@ final class Recorder: ObservableObject {
         for path in chunkPaths {
             allPCM.append(try Data(contentsOf: path))
         }
-        lock.lock()
-        if !currentChunk.isEmpty {
-            allPCM.append(currentChunk)
-            currentChunk = Data()
+        if let remaining = audioBuffer.drainChunk() {
+            allPCM.append(remaining)
         }
-        lock.unlock()
 
         let wavData = buildWAV(allPCM)
         let formatter = DateFormatter()
@@ -299,6 +305,56 @@ final class Recorder: ObservableObject {
         appendLE32(&wav, dataSize)
         wav.append(pcmData)
         return wav
+    }
+}
+
+// MARK: - Tap Handler (must be a free function — not @MainActor-isolated)
+
+/// Creates the AVAudioEngine tap handler closure.
+/// This is a free function (not a method on @MainActor Recorder) so the returned closure
+/// inherits no actor isolation and can safely run on the real-time audio thread.
+private func makeTapHandler(
+    quality: AudioQuality,
+    inputFormat: AVAudioFormat,
+    targetFormat: AVAudioFormat,
+    converter: AVAudioConverter,
+    buffer: AudioBuffer,
+    channelCount: Int
+) -> (AVAudioPCMBuffer, AVAudioTime) -> Void {
+    return { inBuffer, _ in
+        let ratio = quality.sampleRate / inputFormat.sampleRate
+        let frameCount = AVAudioFrameCount(Double(inBuffer.frameLength) * ratio)
+        guard frameCount > 0 else { return }
+
+        guard let convertedBuffer = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: frameCount) else { return }
+
+        var error: NSError?
+        let status = converter.convert(to: convertedBuffer, error: &error) { _, outStatus in
+            outStatus.pointee = .haveData
+            return inBuffer
+        }
+        guard status != .error, error == nil else { return }
+
+        let count = Int(convertedBuffer.frameLength)
+        guard let floatData = convertedBuffer.floatChannelData else { return }
+
+        // Compute audio level for waveform display (stored in buffer, read by timer)
+        var level: Float = 0
+        let ch0 = floatData[0]
+        for i in 0..<count { level += abs(ch0[i]) }
+        level /= Float(max(count, 1))
+
+        // Convert Float32 to Int16 PCM
+        var int16Data = Data(capacity: count * channelCount * 2)
+        for i in 0..<count {
+            for ch in 0..<channelCount {
+                let sample = max(-1.0, min(1.0, floatData[ch][i]))
+                var int16 = Int16(sample * 32767.0)
+                withUnsafeBytes(of: &int16) { int16Data.append(contentsOf: $0) }
+            }
+        }
+
+        buffer.append(int16Data, samples: count, level: level)
     }
 }
 

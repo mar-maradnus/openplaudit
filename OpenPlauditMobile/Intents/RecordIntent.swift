@@ -5,9 +5,9 @@
 import AppIntents
 
 struct RecordIntent: AppIntent {
-    static var title: LocalizedStringResource = "Toggle Recording"
-    static var description = IntentDescription("Start or stop an OpenPlaudit recording.")
-    static var openAppWhenRun: Bool = true
+    static let title: LocalizedStringResource = "Toggle Recording"
+    static let description = IntentDescription("Start or stop an OpenPlaudit recording.")
+    static let openAppWhenRun: Bool = true
 
     func perform() async throws -> some IntentResult {
         // The intent opens the app, which handles the recording toggle

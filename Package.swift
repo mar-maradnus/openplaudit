@@ -27,12 +27,14 @@ let package = Package(
         // --- Cross-platform libraries (macOS + iOS) ---
         .target(
             name: "SharedKit",
-            path: "Sources/SharedKit"
+            path: "Sources/SharedKit",
+            exclude: ["Package.swift"]
         ),
         .target(
             name: "NetworkKit",
             dependencies: ["SharedKit"],
-            path: "Sources/NetworkKit"
+            path: "Sources/NetworkKit",
+            exclude: ["Package.swift"]
         ),
 
         // --- macOS libraries ---

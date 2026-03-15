@@ -8,6 +8,7 @@ import CryptoKit
 import SwiftData
 import NetworkKit
 import SharedKit
+import UIKit
 import os
 
 private let log = Logger(subsystem: "com.openplaudit.mobile", category: "sync")
@@ -45,7 +46,7 @@ final class SyncManager: ObservableObject, SyncClientDelegate {
         guard let modelContext else { return }
 
         let descriptor = FetchDescriptor<RecordingModel>(
-            predicate: #Predicate { $0.status == RecordingStatus.recorded.rawValue }
+            predicate: #Predicate { $0.status == "recorded" }
         )
         guard let pending = try? modelContext.fetch(descriptor), !pending.isEmpty else { return }
 
