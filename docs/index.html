@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenPlaudit — Private AI Transcription</title>
+    <meta name="description" content="Record on iPhone, transcribe and summarise on Mac. Entirely offline, entirely private. No cloud, no accounts, no telemetry.">
+    <style>
+        :root {
+            --bg: #fafafa;
+            --fg: #1a1a1a;
+            --muted: #666;
+            --accent: #0066cc;
+            --accent-hover: #0052a3;
+            --card-bg: #fff;
+            --border: #e5e5e5;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #111;
+                --fg: #e5e5e5;
+                --muted: #999;
+                --accent: #4da3ff;
+                --accent-hover: #80bfff;
+                --card-bg: #1a1a1a;
+                --border: #333;
+            }
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+            background: var(--bg);
+            color: var(--fg);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+        .container { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+
+        /* Hero */
+        .hero {
+            padding: 80px 0 60px;
+            text-align: center;
+        }
+        .hero h1 {
+            font-size: 2.8rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            margin-bottom: 16px;
+        }
+        .hero .tagline {
+            font-size: 1.25rem;
+            color: var(--muted);
+            max-width: 520px;
+            margin: 0 auto 40px;
+        }
+        .cta-group {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-secondary {
+            background: var(--card-bg);
+            color: var(--fg);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:hover { background: var(--border); }
+        .price-note {
+            margin-top: 12px;
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        /* How it works */
+        .section { padding: 60px 0; }
+        .section h2 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 32px;
+            letter-spacing: -0.02em;
+        }
+        .steps {
+            display: grid;
+            gap: 24px;
+        }
+        .step {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+        }
+        .step-num {
+            display: inline-block;
+            width: 28px;
+            height: 28px;
+            line-height: 28px;
+            text-align: center;
+            border-radius: 50%;
+            background: var(--accent);
+            color: #fff;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+        .step h3 { font-size: 1.1rem; margin-bottom: 6px; }
+        .step p { color: var(--muted); font-size: 0.95rem; }
+
+        /* Features */
+        .features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 600px) { .features { grid-template-columns: 1fr; } }
+        .feature {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+        }
+        .feature h3 { font-size: 1rem; margin-bottom: 6px; }
+        .feature p { color: var(--muted); font-size: 0.9rem; }
+
+        /* Privacy */
+        .privacy-banner {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 32px;
+            text-align: center;
+            margin: 40px 0;
+        }
+        .privacy-banner h2 { margin-bottom: 16px; }
+        .privacy-banner p { color: var(--muted); max-width: 520px; margin: 0 auto; }
+        .privacy-checks {
+            display: flex;
+            gap: 24px;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .privacy-checks span {
+            font-size: 0.95rem;
+            color: var(--muted);
+        }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            text-align: center;
+            border-top: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+        footer a { color: var(--accent); text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <section class="hero">
+        <h1>OpenPlaudit</h1>
+        <p class="tagline">Record on iPhone, transcribe and summarise on Mac. Entirely offline, entirely private.</p>
+        <div class="cta-group">
+            <a href="#" class="btn btn-primary" id="buy-mac">Download for Mac — $49.99</a>
+            <a href="https://apps.apple.com/app/openplaudit/id000000000" class="btn btn-secondary">Free on App Store</a>
+        </div>
+        <p class="price-note">One-time purchase. No subscription. No account required.</p>
+    </section>
+
+    <section class="section">
+        <h2>How it works</h2>
+        <div class="steps">
+            <div class="step">
+                <div class="step-num">1</div>
+                <h3>Record on iPhone</h3>
+                <p>One tap to start. Records in the background — lock your phone, switch apps, put it in your pocket. Voice-optimised 16kHz or high-fidelity 48kHz.</p>
+            </div>
+            <div class="step">
+                <div class="step-num">2</div>
+                <h3>Auto-sync to Mac</h3>
+                <p>Pair once with a 6-digit code. Recordings sync over your local Wi-Fi — never through the cloud. Authenticated and encrypted end-to-end.</p>
+            </div>
+            <div class="step">
+                <div class="step-num">3</div>
+                <h3>AI processes locally</h3>
+                <p>Your Mac transcribes (whisper.cpp), identifies speakers, generates summaries, action items, and mind maps — all on-device using local AI models. Nothing leaves your machine.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <h2>Features</h2>
+        <div class="features">
+            <div class="feature">
+                <h3>Transcription</h3>
+                <p>Speech-to-text with timestamps powered by whisper.cpp. Runs entirely on your Mac's CPU/GPU.</p>
+            </div>
+            <div class="feature">
+                <h3>Speaker identification</h3>
+                <p>Automatically labels who said what. Name a speaker once and they're recognised in future recordings.</p>
+            </div>
+            <div class="feature">
+                <h3>AI summaries</h3>
+                <p>Meeting minutes, action items, key points, SOAP notes, Cornell notes — generated locally by llama.cpp.</p>
+            </div>
+            <div class="feature">
+                <h3>Mind maps</h3>
+                <p>Structured outlines generated from your transcripts. Export as Mermaid or OPML.</p>
+            </div>
+            <div class="feature">
+                <h3>PLAUD Note support</h3>
+                <p>Already own a PLAUD Note? OpenPlaudit syncs recordings directly over Bluetooth — no PLAUD cloud required.</p>
+            </div>
+            <div class="feature">
+                <h3>Background recording</h3>
+                <p>iPhone records while locked or in another app. Live Activity shows elapsed time on your Lock Screen.</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="privacy-banner">
+        <h2>Private by design</h2>
+        <p>OpenPlaudit was built for people who can't afford to have their conversations in someone else's cloud. Lawyers, therapists, journalists, executives — your recordings stay on your devices.</p>
+        <div class="privacy-checks">
+            <span>No cloud processing</span>
+            <span>No accounts</span>
+            <span>No analytics</span>
+            <span>No ads</span>
+        </div>
+    </div>
+
+    <section class="section" style="text-align: center;">
+        <h2>Get OpenPlaudit</h2>
+        <div class="cta-group">
+            <a href="#" class="btn btn-primary" id="buy-mac-bottom">Download for Mac — $49.99</a>
+            <a href="https://apps.apple.com/app/openplaudit/id000000000" class="btn btn-secondary">Free on App Store</a>
+        </div>
+        <p class="price-note">macOS 14+ required. iPhone app requires iOS 17+. Both devices on the same Wi-Fi network for sync.</p>
+    </section>
+</div>
+
+<footer>
+    <div class="container">
+        <p>&copy; 2026 Ram Sundaram. <a href="privacy-policy">Privacy Policy</a> · <a href="https://github.com/mar-maradnus/openplaudit">Source Code</a> · <a href="https://github.com/mar-maradnus/openplaudit/issues">Support</a></p>
+        <p style="margin-top: 8px;">Licensed under BSL 1.1. Source available on GitHub.</p>
+    </div>
+</footer>
+
+</body>
+</html>
