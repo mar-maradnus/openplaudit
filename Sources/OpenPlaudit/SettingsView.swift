@@ -2,8 +2,11 @@
 
 import AppKit
 import AVFoundation
+import CryptoKit
 import SwiftUI
 import SyncEngine
+import SharedKit
+import NetworkKit
 import TranscriptionKit
 import MeetingKit
 import DiarizationKit
@@ -12,6 +15,7 @@ import SummarisationKit
 struct SettingsView: View {
     @ObservedObject var engine: SyncEngine
     @ObservedObject var meetingEngine: MeetingEngine
+    var onPairingComplete: (() -> Void)?
 
     @State private var address: String = ""
     @State private var token: String = ""
@@ -56,6 +60,13 @@ struct SettingsView: View {
     @State private var diagnosticsMessage: String?
     @State private var isExportingDiagnostics = false
 
+    // Companion state
+    @State private var companionPairedDeviceID: String = ""
+    @State private var companionPairedDeviceName: String = ""
+    @State private var companionAutoProcess: Bool = true
+    @State private var pairingCode: String?
+    @State private var isPairing: Bool = false
+
     enum SettingsSection: String, CaseIterable, Identifiable {
         case device = "Device"
         case output = "Output"
@@ -63,6 +74,7 @@ struct SettingsView: View {
         case ai = "AI"
         case sync = "Sync"
         case meetings = "Meetings"
+        case companion = "Companion"
         case support = "Support"
 
         var id: String { rawValue }
@@ -75,6 +87,7 @@ struct SettingsView: View {
             case .ai: return "brain"
             case .sync: return "arrow.triangle.2.circlepath"
             case .meetings: return "video.fill"
+            case .companion: return "iphone"
             case .support: return "lifepreserver"
             }
         }
@@ -110,6 +123,7 @@ struct SettingsView: View {
         case .ai: aiSection
         case .sync: syncSection
         case .meetings: meetingsSection
+        case .companion: companionSection
         case .support: supportSection
         }
     }
@@ -413,6 +427,90 @@ struct SettingsView: View {
         .onAppear { refreshMicDevices() }
     }
 
+    private var companionSection: some View {
+        Form {
+            if companionPairedDeviceID.isEmpty {
+                // Not paired — show pairing UI
+                Section {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Pair an iPhone to use it as a wireless recorder. Recordings sync over your local network and are processed by the full AI pipeline on this Mac.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+
+                        if let code = pairingCode {
+                            VStack(spacing: 8) {
+                                Text("Enter this code on your iPhone:")
+                                    .font(.callout)
+                                Text(code)
+                                    .font(.system(size: 36, weight: .bold, design: .monospaced))
+                                    .tracking(6)
+                                    .foregroundStyle(.primary)
+                                Text("Waiting for connection…")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+
+                            Button("Cancel") {
+                                pairingCode = nil
+                                isPairing = false
+                            }
+                        } else {
+                            Button("Pair iPhone") {
+                                startPairing()
+                            }
+                            .disabled(isPairing)
+                        }
+                    }
+                } header: {
+                    Text("iPhone Companion")
+                }
+            } else {
+                // Paired — show paired device info
+                Section {
+                    LabeledContent("Device:", value: companionPairedDeviceName.isEmpty ? "iPhone" : companionPairedDeviceName)
+                    LabeledContent("Device ID:", value: String(companionPairedDeviceID.prefix(8)) + "…")
+                    Toggle("Auto-process recordings", isOn: $companionAutoProcess)
+                } header: {
+                    Text("Paired iPhone")
+                } footer: {
+                    Text("Recordings from the iPhone are automatically transcribed, diarized, and summarised when received.")
+                }
+
+                Section {
+                    Button("Unpair iPhone", role: .destructive) {
+                        unpairCompanion()
+                    }
+                }
+
+                saveRow
+            }
+        }
+        .formStyle(.grouped)
+        .padding(.top, 8)
+    }
+
+    private func startPairing() {
+        let code = generatePairingCode()
+        pairingCode = code
+        isPairing = true
+
+        // Derive and store the pairing key
+        let key = derivePairingKey(from: code)
+        let keyData = key.withUnsafeBytes { Data($0) }
+        try? KeychainHelper.save(key: "companion.pairing_key", value: keyData.base64EncodedString())
+    }
+
+    private func unpairCompanion() {
+        companionPairedDeviceID = ""
+        companionPairedDeviceName = ""
+        try? KeychainHelper.delete(key: "companion.pairing_key")
+        engine.config.companion.pairedDeviceID = ""
+        engine.config.companion.pairedDeviceName = ""
+        _ = engine.persistConfig()
+    }
+
     private var supportSection: some View {
         Form {
             Section {
@@ -543,6 +641,10 @@ struct SettingsView: View {
         meetingConsentAcknowledged = cfg.meeting.consentAcknowledged
         meetingMonitoredApps = Set(cfg.meeting.monitoredApps)
         meetingMicDeviceID = cfg.meeting.micDeviceID
+
+        companionPairedDeviceID = cfg.companion.pairedDeviceID
+        companionPairedDeviceName = cfg.companion.pairedDeviceName
+        companionAutoProcess = cfg.companion.autoProcess
     }
 
     private func saveConfig() {
@@ -571,6 +673,10 @@ struct SettingsView: View {
         engine.config.meeting.consentAcknowledged = meetingConsentAcknowledged
         engine.config.meeting.monitoredApps = Array(meetingMonitoredApps)
         engine.config.meeting.micDeviceID = meetingMicDeviceID
+
+        engine.config.companion.pairedDeviceID = companionPairedDeviceID
+        engine.config.companion.pairedDeviceName = companionPairedDeviceName
+        engine.config.companion.autoProcess = companionAutoProcess
 
         saveError = engine.persistConfig()
 

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>audio</string>
+    </array>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>OpenPlaudit needs microphone access to record audio for transcription.</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>OpenPlaudit uses the local network to sync recordings with your Mac for transcription and AI processing.</string>
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_openplaudit._tcp</string>
+    </array>
+    <key>CFBundleShortVersionString</key>
+    <string>0.9.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>NSSupportsLiveActivities</key>
+    <true/>
+</dict>
+</plist>

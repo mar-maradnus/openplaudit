@@ -22,6 +22,7 @@ public struct AppConfig: Equatable, Sendable {
     public var meeting = MeetingConfig()
     public var diarization = DiarizationConfig()
     public var summarisation = SummarisationConfig()
+    public var companion = CompanionConfig()
 
     public struct DeviceConfig: Equatable, Sendable {
         public var address: String = ""
@@ -74,6 +75,12 @@ public struct AppConfig: Equatable, Sendable {
         public var includeBrowsers: Bool = false
         public var micDeviceID: String = ""  // empty = system default
         public var consentAcknowledged: Bool = false
+    }
+
+    public struct CompanionConfig: Equatable, Sendable {
+        public var pairedDeviceID: String = ""
+        public var pairedDeviceName: String = ""
+        public var autoProcess: Bool = true
     }
 
     public init() {}
@@ -162,6 +169,8 @@ public struct OutputDirs {
     public let importTranscripts: URL
     public let micAudio: URL
     public let micTranscripts: URL
+    public let companionAudio: URL
+    public let companionTranscripts: URL
 }
 
 public func getOutputDirs(_ cfg: AppConfig) -> OutputDirs {
@@ -169,6 +178,7 @@ public func getOutputDirs(_ cfg: AppConfig) -> OutputDirs {
     let meetings = base.appendingPathComponent("meetings")
     let imports = base.appendingPathComponent("imports")
     let mic = base.appendingPathComponent("mic")
+    let companion = base.appendingPathComponent("companion")
     return OutputDirs(
         base: base,
         audio: base.appendingPathComponent("audio"),
@@ -179,7 +189,9 @@ public func getOutputDirs(_ cfg: AppConfig) -> OutputDirs {
         importAudio: imports.appendingPathComponent("audio"),
         importTranscripts: imports.appendingPathComponent("transcripts"),
         micAudio: mic.appendingPathComponent("audio"),
-        micTranscripts: mic.appendingPathComponent("transcripts")
+        micTranscripts: mic.appendingPathComponent("transcripts"),
+        companionAudio: companion.appendingPathComponent("audio"),
+        companionTranscripts: companion.appendingPathComponent("transcripts")
     )
 }
 
@@ -238,6 +250,12 @@ private func parseConfig(_ table: TOMLTable) -> AppConfig {
         if let ca = meeting["consent_acknowledged"]?.bool { cfg.meeting.consentAcknowledged = ca }
     }
 
+    if let comp = table["companion"]?.table {
+        if let id = comp["paired_device_id"]?.string { cfg.companion.pairedDeviceID = id }
+        if let name = comp["paired_device_name"]?.string { cfg.companion.pairedDeviceName = name }
+        if let auto = comp["auto_process"]?.bool { cfg.companion.autoProcess = auto }
+    }
+
     return cfg
 }
 
@@ -292,6 +310,12 @@ private func configToTOML(_ cfg: AppConfig) -> TOMLTable {
     meeting["mic_device_id"] = cfg.meeting.micDeviceID
     meeting["consent_acknowledged"] = cfg.meeting.consentAcknowledged
     table["meeting"] = meeting
+
+    let companion = TOMLTable()
+    companion["paired_device_id"] = cfg.companion.pairedDeviceID
+    companion["paired_device_name"] = cfg.companion.pairedDeviceName
+    companion["auto_process"] = cfg.companion.autoProcess
+    table["companion"] = companion
 
     return table
 }
@@ -374,6 +398,13 @@ public func setNested(_ cfg: inout AppConfig, key: String, value: String) throws
         case "include_browsers": cfg.meeting.includeBrowsers = parseBool(value)
         case "mic_device_id": cfg.meeting.micDeviceID = value
         case "consent_acknowledged": cfg.meeting.consentAcknowledged = parseBool(value)
+        default: throw ConfigError.unknownKey(key)
+        }
+    case "companion":
+        switch name {
+        case "paired_device_id": cfg.companion.pairedDeviceID = value
+        case "paired_device_name": cfg.companion.pairedDeviceName = value
+        case "auto_process": cfg.companion.autoProcess = parseBool(value)
         default: throw ConfigError.unknownKey(key)
         }
     default:

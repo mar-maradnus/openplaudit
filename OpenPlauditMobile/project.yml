@@ -1,0 +1,55 @@
+name: OpenPlauditMobile
+options:
+  bundleIdPrefix: com.openplaudit
+  deploymentTarget:
+    iOS: "17.0"
+
+packages:
+  OpenPlauditRepo:
+    url: https://github.com/placeholder/openplaudit
+    from: "0.1.0"
+
+targets:
+  OpenPlauditMobile:
+    type: application
+    platform: iOS
+    sources:
+      - OpenPlauditMobile
+      - Intents
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.openplaudit.mobile
+        MARKETING_VERSION: "0.9.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "6.0"
+        INFOPLIST_FILE: OpenPlauditMobile/Info.plist
+        CODE_SIGN_ENTITLEMENTS: OpenPlauditMobile/OpenPlauditMobile.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+
+  RecordingWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - Widgets
+    dependencies:
+      - target: OpenPlauditMobile
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.openplaudit.mobile.widget
+        MARKETING_VERSION: "0.9.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "6.0"
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  OpenPlauditMobile:
+    build:
+      targets:
+        OpenPlauditMobile: all
+        RecordingWidget: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    archive:
+      config: Release

@@ -4,9 +4,11 @@ import PackageDescription
 
 let package = Package(
     name: "OpenPlaudit",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v14), .iOS(.v17)],
     products: [
         .executable(name: "OpenPlaudit", targets: ["OpenPlaudit"]),
+        .library(name: "SharedKit", targets: ["SharedKit"]),
+        .library(name: "NetworkKit", targets: ["NetworkKit"]),
     ],
     dependencies: [
         .package(url: "https://github.com/LebJe/TOMLKit.git", from: "0.6.0"),
@@ -22,7 +24,18 @@ let package = Package(
             providers: [.brew(["opus"])]
         ),
 
-        // --- Libraries ---
+        // --- Cross-platform libraries (macOS + iOS) ---
+        .target(
+            name: "SharedKit",
+            path: "Sources/SharedKit"
+        ),
+        .target(
+            name: "NetworkKit",
+            dependencies: ["SharedKit"],
+            path: "Sources/NetworkKit"
+        ),
+
+        // --- macOS libraries ---
         .target(
             name: "BLEKit",
             path: "Sources/BLEKit",
@@ -38,13 +51,13 @@ let package = Package(
         ),
         .target(
             name: "SyncEngine",
-            dependencies: ["BLEKit", "AudioKit", "TOMLKit", "TranscriptionKit", "DiarizationKit", "SummarisationKit", "MindMapKit"],
+            dependencies: ["BLEKit", "AudioKit", "TOMLKit", "SharedKit", "NetworkKit", "TranscriptionKit", "DiarizationKit", "SummarisationKit", "MindMapKit"],
             path: "Sources/SyncEngine",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .target(
             name: "TranscriptionKit",
-            dependencies: ["SwiftWhisper"],
+            dependencies: ["SharedKit", "SwiftWhisper"],
             path: "Sources/TranscriptionKit"
         ),
         .target(
@@ -61,12 +74,13 @@ let package = Package(
         ),
         .target(
             name: "DiarizationKit",
-            dependencies: ["TranscriptionKit"],
+            dependencies: ["SharedKit"],
             path: "Sources/DiarizationKit",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .target(
             name: "SummarisationKit",
+            dependencies: ["SharedKit"],
             path: "Sources/SummarisationKit",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
@@ -80,13 +94,23 @@ let package = Package(
         // --- App ---
         .executableTarget(
             name: "OpenPlaudit",
-            dependencies: ["BLEKit", "AudioKit", "SyncEngine", "TranscriptionKit", "MeetingKit", "ImportKit", "DiarizationKit", "SummarisationKit", "MindMapKit"],
+            dependencies: ["BLEKit", "AudioKit", "SyncEngine", "SharedKit", "NetworkKit", "TranscriptionKit", "MeetingKit", "ImportKit", "DiarizationKit", "SummarisationKit", "MindMapKit"],
             path: "Sources/OpenPlaudit",
             exclude: ["Resources/Info.plist", "Resources/OpenPlaudit.entitlements"],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
 
         // --- Tests ---
+        .testTarget(
+            name: "SharedKitTests",
+            dependencies: ["SharedKit", .product(name: "Testing", package: "swift-testing")],
+            path: "Tests/SharedKitTests"
+        ),
+        .testTarget(
+            name: "NetworkKitTests",
+            dependencies: ["NetworkKit", "SharedKit", .product(name: "Testing", package: "swift-testing")],
+            path: "Tests/NetworkKitTests"
+        ),
         .testTarget(
             name: "BLEKitTests",
             dependencies: ["BLEKit", .product(name: "Testing", package: "swift-testing")],
@@ -114,7 +138,7 @@ let package = Package(
         ),
         .testTarget(
             name: "DiarizationKitTests",
-            dependencies: ["DiarizationKit", "TranscriptionKit", .product(name: "Testing", package: "swift-testing")],
+            dependencies: ["DiarizationKit", .product(name: "Testing", package: "swift-testing")],
             path: "Tests/DiarizationKitTests"
         ),
         .testTarget(

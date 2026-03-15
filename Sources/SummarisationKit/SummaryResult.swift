@@ -1,19 +1,10 @@
 /// Summary result types and backend protocol for local LLM summarisation.
+///
+/// SummaryResult is defined in SharedKit for cross-platform use.
+/// This file re-exports it and defines the backend protocol (macOS-only).
 
 import Foundation
-
-/// Result of summarising a transcript.
-public struct SummaryResult: Codable, Sendable, Equatable {
-    public let template: String
-    public let model: String
-    public let content: String
-
-    public init(template: String, model: String, content: String) {
-        self.template = template
-        self.model = model
-        self.content = content
-    }
-}
+@_exported import SharedKit
 
 /// Protocol for summarisation backends (Ollama, llama.cpp, etc.).
 public protocol SummarisationBackend: Sendable {

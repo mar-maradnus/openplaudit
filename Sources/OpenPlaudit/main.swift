@@ -7,8 +7,11 @@
 
 import AppKit
 import Combine
+import CryptoKit
 import SwiftUI
 import SyncEngine
+import SharedKit
+import NetworkKit
 import TranscriptionKit
 import ImportKit
 import MeetingKit
@@ -28,6 +31,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var micRecordingStartTime: Date?
     private var micDurationTimer: Timer?
     private var settingsWindow: NSWindow?
+    private var syncServer: SyncServer?
     private var aboutWindow: NSWindow?
     private var chatWindows: [NSWindow] = []
     private var cancellables: Set<AnyCancellable> = []
@@ -89,6 +93,32 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Start meeting monitoring if configured
         if config.meeting.enabled && config.meeting.consentAcknowledged {
             meetingEngine.startMonitoring()
+        }
+
+        // Start companion sync server if paired
+        startCompanionServerIfNeeded()
+    }
+
+    private func startCompanionServerIfNeeded() {
+        let cfg = MainActor.assumeIsolated { engine.config }
+        guard !cfg.companion.pairedDeviceID.isEmpty else { return }
+
+        guard let keyData = KeychainHelper.load(key: "companion.pairing_key"),
+              let keyBytes = Data(base64Encoded: keyData) else {
+            log.warning("Companion paired but no pairing key in keychain")
+            return
+        }
+
+        let key = SymmetricKey(data: keyBytes)
+        let dirs = getOutputDirs(cfg)
+        let server = SyncServer(pairingKey: key, outputDir: dirs.companionAudio)
+        server.delegate = self
+        do {
+            try server.start()
+            syncServer = server
+            log.info("Companion sync server started")
+        } catch {
+            log.error("Failed to start companion server: \(error.localizedDescription)")
         }
     }
 
@@ -588,10 +618,39 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         w.isReleasedWhenClosed = false
         w.title = "Settings"
         w.center()
-        w.contentView = NSHostingView(rootView: SettingsView(engine: engine, meetingEngine: meetingEngine))
+        w.contentView = NSHostingView(rootView: SettingsView(engine: engine, meetingEngine: meetingEngine, onPairingComplete: { [weak self] in
+            self?.startCompanionServerIfNeeded()
+        }))
         w.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         settingsWindow = w
+    }
+}
+
+// MARK: - SyncServerDelegate
+
+extension AppDelegate: SyncServerDelegate {
+    func syncServerDidConnect(deviceName: String, deviceID: String) {
+        log.info("Companion connected: \(deviceName)")
+    }
+
+    func syncServerDidDisconnect() {
+        log.info("Companion disconnected")
+    }
+
+    func syncServerDidReceiveRecording(id: String, wavPath: URL) {
+        log.info("Received companion recording: \(id)")
+        let cfg = MainActor.assumeIsolated { engine.config }
+        guard cfg.companion.autoProcess else { return }
+
+        // Trigger the import pipeline on the received recording
+        Task { @MainActor in
+            importEngine.importFiles([wavPath])
+        }
+    }
+
+    func syncServerDidEncounterError(_ error: Error) {
+        log.error("Companion server error: \(error.localizedDescription)")
     }
 }
 
