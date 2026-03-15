@@ -26,6 +26,8 @@ DerivedData/
 # Private documents
 COMMERCIAL-STRATEGY.md
 
-# Claude Code (local instructions, not project source)
+# Claude Code / AI session context
 .claude/
+.serena/
 HANDOVER.md
+context.json
