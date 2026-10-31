@@ -12,12 +12,18 @@ authors = [{name = "Ram Sundaram", email = "ram@terrapay.com"}]
 dependencies = [
     "bleak>=0.22",
     "opuslib>=3.0",
-    "openai-whisper>=20231117",
     "click>=8.0",
     "tomli-w>=1.0",
+    # RSA/PKCS#1 unwrap and ChaCha20: the E2EE download path and device
+    # re-binding both need it at runtime, not just in tests.
+    "cryptography>=41.0",
 ]
 
 [project.optional-dependencies]
+# Local transcription. Without it `plaude sync` still downloads and decodes;
+# set transcription.api_key (or OPENAI_API_KEY) to use an OpenAI-compatible
+# endpoint instead.
+whisper = ["openai-whisper"]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",

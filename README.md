@@ -116,6 +116,11 @@ A command-line tool for the same PLAUD sync workflow, useful for scripting and a
 cd openplaudit
 python -m venv venv && source venv/bin/activate
 pip install -e ".[dev]"
+
+To transcribe locally, also install Whisper: `pip install -e ".[whisper]"`.
+Downloading and decoding work without it; so does transcription through any
+OpenAI-compatible endpoint if `transcription.api_key` (or `OPENAI_API_KEY`) is
+set.
 ```
 
 Requires Python 3.11+, macOS, `brew install opus`.

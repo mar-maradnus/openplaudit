@@ -32,17 +32,14 @@ from .state import (
     is_complete, needs_download,
 )
 
-
 def _session_filename(session_id: int) -> str:
     """Convert session_id (unix timestamp) to a timezone-stable filename stem."""
     ts = datetime.datetime.fromtimestamp(session_id, tz=datetime.timezone.utc)
     return ts.strftime("%Y%m%d_%H%M%S_UTC")
 
-
 def _format_local_time(session_id: int) -> str:
     """Format session_id as local time for display only."""
     return datetime.datetime.fromtimestamp(session_id).strftime("%Y-%m-%d %H:%M:%S")
-
 
 async def run_sync(cfg: dict, verbose: bool = False, quiet: bool = False) -> int:
     """Full sync pipeline. Returns count of newly completed recordings."""
@@ -55,12 +52,14 @@ async def run_sync(cfg: dict, verbose: bool = False, quiet: bool = False) -> int
     if not address or not token:
         raise ValueError("Device address and token must be configured. Run: plaude config init")
 
+    creds_path = cfg["device"].get("creds_path", "~/plaud-credentials.md")
+
     dirs = get_output_dirs(cfg)
     for d in dirs.values():
         d.mkdir(parents=True, exist_ok=True)
 
     state = load_state()
-    client = PlaudClient(address, token, verbose=verbose)
+    client = PlaudClient(address, token, verbose=verbose, creds_path=creds_path)
     completed_count = 0
     whisper_model = None
 
@@ -69,8 +68,7 @@ async def run_sync(cfg: dict, verbose: bool = False, quiet: bool = False) -> int
             print("Connecting to PLAUD device...")
         await client.connect()
 
-        if not await client.handshake():
-            raise ConnectionError("Handshake failed — check token or ensure device is not recording")
+        await client.handshake()
         await client.time_sync()
 
         sessions = await client.get_sessions()
@@ -100,10 +98,26 @@ async def run_sync(cfg: dict, verbose: bool = False, quiet: bool = False) -> int
                 wav_path = dirs["audio"] / f"{fname}.wav"
 
                 if needs_download(state, sid):
+                    resume_from = 0
+                    if raw_path and raw_path.exists():
+                        have = raw_path.stat().st_size
+                        if 0 < have < s["file_size"]:
+                            resume_from = have
+                            if not quiet:
+                                print(f"  Resuming from {have}/{s['file_size']} bytes "
+                                      f"({have / s['file_size'] * 100:.1f}%)")
+                        elif have >= s["file_size"]:
+                            resume_from = 0  # complete-looking; re-fetch cleanly
+
                     if not quiet:
                         print(f"\nDownloading {display_time} ({s['file_size'] / 1024:.1f} KB)...")
 
-                    raw_data = await download_file(client, sid, s["file_size"], verbose=verbose)
+                    raw_data = await download_file(client, sid, s["file_size"],
+                                                   file_index=s.get("file_index"),
+                                                   file_type=s.get("file_type", 0),
+                                                   verbose=verbose,
+                                                   start_offset=resume_from,
+                                                   progress_path=str(raw_path) if raw_path else None)
 
                     if raw_path:
                         raw_path.write_bytes(raw_data)
@@ -121,15 +135,26 @@ async def run_sync(cfg: dict, verbose: bool = False, quiet: bool = False) -> int
                         # Raw data lost and no WAV — re-download
                         if not quiet:
                             print(f"\nRe-downloading {display_time} (raw data not retained)...")
-                        raw_data = await download_file(client, sid, s["file_size"], verbose=verbose)
+                        raw_data = await download_file(client, sid, s["file_size"],
+                                                   file_index=s.get("file_index"),
+                                                   file_type=s.get("file_type", 0),
+                                                   verbose=verbose)
                         mark_downloaded(state, sid)
                         save_state(state)
 
                 # Phase 2: Decode
                 if not wav_path.exists() and raw_data is not None:
-                    if not quiet:
-                        print(f"  Decoding Opus...")
-                    pcm = decode_opus_raw(raw_data)
+                    if raw_data[:8] == b"PLAUD.AI":
+                        from .audio.e2ee import decode_plaud_ai_e2ee
+                        from .ble.client import load_credentials
+                        if not quiet:
+                            print(f"  Decrypting E2EE (PLAUD.AI)...")
+                        creds = load_credentials(creds_path)
+                        pcm = decode_plaud_ai_e2ee(raw_data, creds["rsa_private_key"])
+                    else:
+                        if not quiet:
+                            print(f"  Decoding Opus...")
+                        pcm = decode_opus_raw(raw_data)
                     save_wav(pcm, str(wav_path))
                     duration = len(pcm) / (16000 * 2)
                     if not quiet:
@@ -141,32 +166,77 @@ async def run_sync(cfg: dict, verbose: bool = False, quiet: bool = False) -> int
                 else:
                     raise RuntimeError(f"WAV file not produced: {wav_path}")
 
-                # Phase 3: Transcribe
-                if not quiet:
-                    print(f"  Transcribing with Whisper ({cfg['transcription']['model']})...")
+                from .audio.decoder import get_wav_duration
+                import os as _os
+                api_key = (cfg.get("transcription", {}).get("api_key")
+                           or _os.environ.get("OPENAI_API_KEY"))
 
-                if whisper_model is None:
-                    from .transcription.whisper import load_model
-                    whisper_model = load_model(cfg["transcription"]["model"])
-
-                from .transcription.whisper import transcribe_with_model
-                result = transcribe_with_model(
-                    whisper_model,
-                    str(wav_path),
-                    model_name=cfg["transcription"]["model"],
-                    language=cfg["transcription"]["language"] or None,
-                )
-                result["file"] = fname
+                if api_key:
+                    from .transcription.whisper import (
+                        transcribe_via_openai, DEFAULT_CHUNK_SECONDS,
+                    )
+                    result = transcribe_via_openai(
+                        str(wav_path),
+                        model=cfg.get("transcription", {}).get("openai_model", "whisper-1"),
+                        api_key=api_key,
+                        chunk_seconds=int(cfg.get("transcription", {}).get(
+                            "chunk_seconds", DEFAULT_CHUNK_SECONDS)),
+                        verbose=verbose,
+                    )
+                    if not quiet:
+                        chunked = result.get("chunks")
+                        how = f", {chunked} chunks" if chunked else ""
+                        print(f"  Transcribed via OpenAI-compatible endpoint "
+                              f"({result['model']}{how}) — {wav_path.name} "
+                              f"({result['duration_seconds']:.1f}s)")
+                else:
+                    try:
+                        from .transcription.whisper import load_model, transcribe_with_model
+                        if whisper_model is None:
+                            whisper_model = load_model(cfg["transcription"]["model"])
+                        result = transcribe_with_model(
+                            whisper_model,
+                            str(wav_path),
+                            model_name=cfg["transcription"]["model"],
+                            language=cfg["transcription"]["language"] or None,
+                        )
+                        result["file"] = fname
+                    except RuntimeError as exc:
+                        duration = get_wav_duration(str(wav_path)) or 0.0
+                        result = {
+                            "file": fname,
+                            "duration_seconds": round(duration, 1),
+                            "model": "disabled",
+                            "language": "unknown",
+                            "segments": [],
+                            "text": "",
+                            "note": f"Transcription skipped: {exc}",
+                        }
+                        if not quiet:
+                            print(f"  {result['note']} — {wav_path.name}")
 
                 transcript_path = dirs["transcripts"] / f"{fname}.json"
                 transcript_path.write_text(json.dumps(result, indent=2, ensure_ascii=False))
+
+                try:
+                    from .markdown import write_markdown
+                    md_path = write_markdown(
+                        result, fname, dirs["markdown"],
+                        audio_name=wav_path.name,
+                        raw_name=raw_path.name if raw_path else None,
+                    )
+                except Exception as e:
+                    md_path = None
+                    if not quiet:
+                        print(f"  (markdown export skipped: {e})")
 
                 mark_transcribed(state, sid)
                 save_state(state)
 
                 if not quiet:
                     preview = result["text"][:100]
-                    print(f"  Transcript: {transcript_path.name}")
+                    print(f"  Transcript: {transcript_path.name}"
+                          + (f" + {md_path.name}" if md_path else ""))
                     print(f"  Preview: {preview}...")
 
                 if cfg["notifications"]["enabled"]:
@@ -199,7 +269,6 @@ async def run_sync(cfg: dict, verbose: bool = False, quiet: bool = False) -> int
     if not quiet:
         print(f"\nDone — {completed_count} recording(s) synced.")
     return completed_count
-
 
 def transcribe_local(file_path: str, cfg: dict, output_dir: str | None = None, quiet: bool = False) -> dict:
     """Transcribe a local audio file (WAV, MP3, etc.) using Whisper."""
