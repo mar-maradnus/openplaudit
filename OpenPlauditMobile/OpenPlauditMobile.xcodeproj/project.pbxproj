@@ -7,20 +7,25 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A1B2C3D4E5F6A7B8C9D0E1F2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F1E2D3C4B5A69788A1B2C3D4 /* Assets.xcassets */; };
 		101AED1C0DAF586667665A10 /* RecordingWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E601E0B801754AC0295F3B9 /* RecordingWidget.swift */; };
+		173AB4DAAF3FFEB944B049DB /* DeviceSyncModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F75D53E422B6A5CF3227324B /* DeviceSyncModel.swift */; };
 		19C861E9BEF5538EE6DDF618 /* NetworkKit in Frameworks */ = {isa = PBXBuildFile; productRef = 8CCC3BB56E2AE78317A16C9E /* NetworkKit */; };
 		19D50C1EB542B20062CA05BC /* RecordingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3112BE082BCA25E97FC47D15 /* RecordingView.swift */; };
+		23655B12D6F163B1D8A758FC /* DeviceSyncView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0D73C2541369008F32697EE /* DeviceSyncView.swift */; };
 		2891DC5A12872C20C0F3CDA2 /* TranscriptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F777DCC103C907F232091B65 /* TranscriptView.swift */; };
 		3351F2155637B362B0D06D33 /* RecordIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67DA476EE535E79071B3344B /* RecordIntent.swift */; };
+		34DE9F77FCC38025B47CFAA7 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45B6F69BF7D1A144F6487A6C /* Theme.swift */; };
+		5A3CD6F3E83194A6EBEB28E8 /* BackgroundSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E1F288BD8BE82883E2CE97F /* BackgroundSync.swift */; };
 		5B67C04D3BD590166570D389 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89B20FFFD539F33BD9C2780A /* App.swift */; };
+		6066C7D7D92988B42B1BDAC2 /* BLEKit in Frameworks */ = {isa = PBXBuildFile; productRef = 3DD42CE409AEE83BFBF428E6 /* BLEKit */; };
 		653AEB7FF49CFF6DE8DC7DB5 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B0143BE9A22334ACC8C7A74 /* SettingsView.swift */; };
 		85EAE9FBC7BDF405971FF980 /* SharedKit in Frameworks */ = {isa = PBXBuildFile; productRef = 4EC936E9063ACAF5629C1526 /* SharedKit */; };
+		90F06E995C51EE3950764FC0 /* PlaudCore in Frameworks */ = {isa = PBXBuildFile; productRef = 3449324C09FD4C1664A41B9F /* PlaudCore */; };
 		A52E45F755A298655B9714AC /* RecordingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD4CD37850479822A9B61916 /* RecordingListView.swift */; };
 		C3A133A47EBD0B910CC5CDF0 /* Recorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEC72988D051A2E194A7B893 /* Recorder.swift */; };
 		CE878751C2B008E814B50D61 /* SyncManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33E775272AE21744E4E96063 /* SyncManager.swift */; };
-		D7E1A2B3F4C8901234567890 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7E1A2B3F4C89012ABCDEF01 /* Theme.swift */; };
 		E26C15DCFB579CA4B83427D1 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E3742491A7A7E5811837A58 /* LiveActivityManager.swift */; };
+		E39F382519C392432D781C39 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = BD13E28638E9A1E57AF335DB /* Assets.xcassets */; };
 		F39C2393A583D2C9E9C98300 /* RecordingModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69817E5B34148816FF8C1885 /* RecordingModel.swift */; };
 /* End PBXBuildFile section */
 
@@ -35,24 +40,29 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0543658FF06382F7F3831BF0 /* BLEKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = BLEKit; path = ../Sources/BLEKit; sourceTree = SOURCE_ROOT; };
 		1B0143BE9A22334ACC8C7A74 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		1E1A5493CA4333105BEB0AFC /* NetworkKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = NetworkKit; path = ../Sources/NetworkKit; sourceTree = SOURCE_ROOT; };
 		1EE05B20B9EC12C64DD51E6E /* OpenPlauditMobile.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = OpenPlauditMobile.entitlements; sourceTree = "<group>"; };
 		2E3742491A7A7E5811837A58 /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityManager.swift; sourceTree = "<group>"; };
 		3112BE082BCA25E97FC47D15 /* RecordingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingView.swift; sourceTree = "<group>"; };
 		33E775272AE21744E4E96063 /* SyncManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncManager.swift; sourceTree = "<group>"; };
+		45B6F69BF7D1A144F6487A6C /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		67DA476EE535E79071B3344B /* RecordIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordIntent.swift; sourceTree = "<group>"; };
 		69817E5B34148816FF8C1885 /* RecordingModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingModel.swift; sourceTree = "<group>"; };
+		7E1F288BD8BE82883E2CE97F /* BackgroundSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundSync.swift; sourceTree = "<group>"; };
 		89B20FFFD539F33BD9C2780A /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
 		8E601E0B801754AC0295F3B9 /* RecordingWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingWidget.swift; sourceTree = "<group>"; };
 		9E4010B7E602D7CC70FF9D40 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		A477AE0E36A10BDDC2E503C7 /* SharedKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SharedKit; path = ../Sources/SharedKit; sourceTree = SOURCE_ROOT; };
 		AEC72988D051A2E194A7B893 /* Recorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Recorder.swift; sourceTree = "<group>"; };
-		D7E1A2B3F4C89012ABCDEF01 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		B3E541BC4E9BDDE940C89B85 /* PlaudCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = PlaudCore; path = ../Sources/PlaudCore; sourceTree = SOURCE_ROOT; };
+		BD13E28638E9A1E57AF335DB /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		DD4CD37850479822A9B61916 /* RecordingListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingListView.swift; sourceTree = "<group>"; };
 		E09425DD62896109D9814E61 /* RecordingWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = RecordingWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		F0D73C2541369008F32697EE /* DeviceSyncView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSyncView.swift; sourceTree = "<group>"; };
+		F75D53E422B6A5CF3227324B /* DeviceSyncModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeviceSyncModel.swift; sourceTree = "<group>"; };
 		F777DCC103C907F232091B65 /* TranscriptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptView.swift; sourceTree = "<group>"; };
-		F1E2D3C4B5A69788A1B2C3D4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F806F2A3DD400B062D0CFBF6 /* OpenPlauditMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = OpenPlauditMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -63,27 +73,20 @@
 			files = (
 				85EAE9FBC7BDF405971FF980 /* SharedKit in Frameworks */,
 				19C861E9BEF5538EE6DDF618 /* NetworkKit in Frameworks */,
+				90F06E995C51EE3950764FC0 /* PlaudCore in Frameworks */,
+				6066C7D7D92988B42B1BDAC2 /* BLEKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
-/* Begin PBXResourcesBuildPhase section */
-		B2C3D4E5F6A7B8C9D0E1F2A3 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				A1B2C3D4E5F6A7B8C9D0E1F2 /* Assets.xcassets in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXResourcesBuildPhase section */
-
 /* Begin PBXGroup section */
 		22D49FC5B6B245E1AC134180 /* Packages */ = {
 			isa = PBXGroup;
 			children = (
+				0543658FF06382F7F3831BF0 /* BLEKit */,
 				1E1A5493CA4333105BEB0AFC /* NetworkKit */,
+				B3E541BC4E9BDDE940C89B85 /* PlaudCore */,
 				A477AE0E36A10BDDC2E503C7 /* SharedKit */,
 			);
 			name = Packages;
@@ -110,7 +113,10 @@
 			isa = PBXGroup;
 			children = (
 				89B20FFFD539F33BD9C2780A /* App.swift */,
-				F1E2D3C4B5A69788A1B2C3D4 /* Assets.xcassets */,
+				BD13E28638E9A1E57AF335DB /* Assets.xcassets */,
+				7E1F288BD8BE82883E2CE97F /* BackgroundSync.swift */,
+				F75D53E422B6A5CF3227324B /* DeviceSyncModel.swift */,
+				F0D73C2541369008F32697EE /* DeviceSyncView.swift */,
 				9E4010B7E602D7CC70FF9D40 /* Info.plist */,
 				2E3742491A7A7E5811837A58 /* LiveActivityManager.swift */,
 				1EE05B20B9EC12C64DD51E6E /* OpenPlauditMobile.entitlements */,
@@ -120,7 +126,7 @@
 				3112BE082BCA25E97FC47D15 /* RecordingView.swift */,
 				1B0143BE9A22334ACC8C7A74 /* SettingsView.swift */,
 				33E775272AE21744E4E96063 /* SyncManager.swift */,
-				D7E1A2B3F4C89012ABCDEF01 /* Theme.swift */,
+				45B6F69BF7D1A144F6487A6C /* Theme.swift */,
 				F777DCC103C907F232091B65 /* TranscriptView.swift */,
 			);
 			path = OpenPlauditMobile;
@@ -153,8 +159,8 @@
 			buildConfigurationList = 8AB566499A3EB34E7D26FA3F /* Build configuration list for PBXNativeTarget "OpenPlauditMobile" */;
 			buildPhases = (
 				C5A198E670C9B2476F34AF60 /* Sources */,
+				EC5A29574EB3BF2C6FF23880 /* Resources */,
 				4ADCF795FA8A26618229E24F /* Frameworks */,
-				B2C3D4E5F6A7B8C9D0E1F2A3 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -164,6 +170,8 @@
 			packageProductDependencies = (
 				4EC936E9063ACAF5629C1526 /* SharedKit */,
 				8CCC3BB56E2AE78317A16C9E /* NetworkKit */,
+				3449324C09FD4C1664A41B9F /* PlaudCore */,
+				3DD42CE409AEE83BFBF428E6 /* BLEKit */,
 			);
 			productName = OpenPlauditMobile;
 			productReference = F806F2A3DD400B062D0CFBF6 /* OpenPlauditMobile.app */;
@@ -214,7 +222,9 @@
 			mainGroup = D2D9A3F76920CAF8DE2554E8;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				64764ACA8BA29011390EC550 /* XCLocalSwiftPackageReference "../Sources/BLEKit" */,
 				B5C3401D7E06588DC4D8A9BB /* XCLocalSwiftPackageReference "../Sources/NetworkKit" */,
+				BD8EB4A8CFD5F32D5EBD6916 /* XCLocalSwiftPackageReference "../Sources/PlaudCore" */,
 				F7885C94FF9177BBE71B47B3 /* XCLocalSwiftPackageReference "../Sources/SharedKit" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -228,12 +238,26 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		EC5A29574EB3BF2C6FF23880 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E39F382519C392432D781C39 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		C5A198E670C9B2476F34AF60 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				5B67C04D3BD590166570D389 /* App.swift in Sources */,
+				5A3CD6F3E83194A6EBEB28E8 /* BackgroundSync.swift in Sources */,
+				173AB4DAAF3FFEB944B049DB /* DeviceSyncModel.swift in Sources */,
+				23655B12D6F163B1D8A758FC /* DeviceSyncView.swift in Sources */,
 				E26C15DCFB579CA4B83427D1 /* LiveActivityManager.swift in Sources */,
 				3351F2155637B362B0D06D33 /* RecordIntent.swift in Sources */,
 				C3A133A47EBD0B910CC5CDF0 /* Recorder.swift in Sources */,
@@ -242,7 +266,7 @@
 				19D50C1EB542B20062CA05BC /* RecordingView.swift in Sources */,
 				653AEB7FF49CFF6DE8DC7DB5 /* SettingsView.swift in Sources */,
 				CE878751C2B008E814B50D61 /* SyncManager.swift in Sources */,
-				D7E1A2B3F4C8901234567890 /* Theme.swift in Sources */,
+				34DE9F77FCC38025B47CFAA7 /* Theme.swift in Sources */,
 				2891DC5A12872C20C0F3CDA2 /* TranscriptView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -500,9 +524,17 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		64764ACA8BA29011390EC550 /* XCLocalSwiftPackageReference "../Sources/BLEKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Sources/BLEKit;
+		};
 		B5C3401D7E06588DC4D8A9BB /* XCLocalSwiftPackageReference "../Sources/NetworkKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../Sources/NetworkKit;
+		};
+		BD8EB4A8CFD5F32D5EBD6916 /* XCLocalSwiftPackageReference "../Sources/PlaudCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Sources/PlaudCore;
 		};
 		F7885C94FF9177BBE71B47B3 /* XCLocalSwiftPackageReference "../Sources/SharedKit" */ = {
 			isa = XCLocalSwiftPackageReference;
@@ -511,6 +543,14 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		3449324C09FD4C1664A41B9F /* PlaudCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PlaudCore;
+		};
+		3DD42CE409AEE83BFBF428E6 /* BLEKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = BLEKit;
+		};
 		4EC936E9063ACAF5629C1526 /* SharedKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = SharedKit;

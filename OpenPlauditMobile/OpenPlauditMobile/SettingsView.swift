@@ -15,12 +15,15 @@ struct SettingsView: View {
     @State private var isPairing: Bool = false
     @State private var pairingError: String?
     @State private var storageSize: String = "Calculating..."
+    @EnvironmentObject private var notesModel: DeviceSyncModel
+    @State private var pickingNotesFolder = false
 
     var body: some View {
         NavigationStack {
             List {
                 settingsRow("Audio Quality") { qualityCard }
                 settingsRow("Sync") { syncCard }
+                settingsRow("Notes Output") { notesOutputCard }
                 settingsRow("Storage") { storageCard }
                 settingsRow("About") { aboutCard }
             }
@@ -33,7 +36,59 @@ struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .onAppear { calculateStorageSize() }
+            .fileImporter(isPresented: $pickingNotesFolder,
+                          allowedContentTypes: [.folder],
+                          allowsMultipleSelection: false) { result in
+                if case .success(let urls) = result, let url = urls.first {
+                    notesModel.setOutputFolder(url)
+                }
+            }
         }
+    }
+
+    private var notesOutputCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Picker("Destination", selection: $notesModel.destination) {
+                Text("Files folder").tag("folder")
+                Text("Vault (MCP)").tag("mcp")
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: notesModel.destination) { _, _ in notesModel.saveSettings() }
+            if notesModel.destination == "mcp" {
+                TextField("MCP endpoint URL", text: $notesModel.mcpURL)
+                    .keyboardType(.URL)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                SecureField("Token", text: $notesModel.mcpToken)
+                TextField("Vault folder", text: $notesModel.vaultFolder)
+                    .autocorrectionDisabled()
+                    .textInputAutocapitalization(.never)
+                Button("Save delivery settings") { notesModel.saveSettings() }
+                    .buttonStyle(.bordered)
+            }
+            if notesModel.destination == "folder" {
+            Text(notesModel.outputFolderName ?? "App folder (visible in Files)")
+                .font(Theme.body)
+                .foregroundStyle(Theme.textPrimary)
+            Text(notesModel.outputFolderName == nil
+                 ? "Sync notes are written inside the app. Choose a folder — iCloud Drive, a vault — to keep them off the phone."
+                 : "Sync notes are written to this folder.")
+                .font(Theme.caption)
+                .foregroundStyle(Theme.textTertiary)
+            HStack(spacing: 12) {
+                Button(notesModel.outputFolderName == nil ? "Choose folder…" : "Change folder…") {
+                    pickingNotesFolder = true
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.accent)
+                if notesModel.outputFolderName != nil {
+                    Button("Reset") { notesModel.clearOutputFolder() }
+                        .buttonStyle(.bordered)
+                }
+            }
+            }
+        }
+        .padding(.vertical, 4)
     }
 
     // MARK: - Row Builder

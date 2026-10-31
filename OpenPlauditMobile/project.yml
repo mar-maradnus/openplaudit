@@ -9,6 +9,10 @@ packages:
     path: ../Sources/SharedKit
   NetworkKit:
     path: ../Sources/NetworkKit
+  PlaudCore:
+    path: ../Sources/PlaudCore
+  BLEKit:
+    path: ../Sources/BLEKit
 
 targets:
   OpenPlauditMobile:
@@ -20,6 +24,8 @@ targets:
     dependencies:
       - package: SharedKit
       - package: NetworkKit
+      - package: PlaudCore
+      - package: BLEKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.openplaudit.mobile

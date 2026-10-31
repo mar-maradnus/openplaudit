@@ -1,13 +1,17 @@
-/// OpenPlaudit Mobile — iPhone companion recorder app.
-///
-/// Lightweight recorder that syncs to the macOS app for AI processing.
-/// No local transcription — the Mac handles the full pipeline.
 
 import SwiftUI
 import SwiftData
 
 @main
 struct OpenPlauditMobileApp: App {
+    /// One model for every tab: settings changed in one place apply everywhere.
+    @StateObject private var syncModel = DeviceSyncModel()
+
+    init() {
+        // BGTaskScheduler requires handlers registered before launch completes.
+        BackgroundSync.register()
+    }
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([RecordingModel.self])
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
@@ -22,6 +26,8 @@ struct OpenPlauditMobileApp: App {
         WindowGroup {
             ContentView()
                 .preferredColorScheme(.dark)
+                .environmentObject(syncModel)
+                .onAppear { BackgroundSync.schedule() }
         }
         .modelContainer(sharedModelContainer)
     }
@@ -29,7 +35,7 @@ struct OpenPlauditMobileApp: App {
 
 /// Root content view with tab navigation.
 struct ContentView: View {
-    @State private var selectedTab = 0
+    @AppStorage("selectedTab") private var selectedTab: Int = 2
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -45,11 +51,17 @@ struct ContentView: View {
                 }
                 .tag(1)
 
+            DeviceSyncView()
+                .tabItem {
+                    Label("Device", systemImage: "dot.radiowaves.left.and.right")
+                }
+                .tag(2)
+
             SettingsView()
                 .tabItem {
                     Label("Settings", systemImage: "gearshape")
                 }
-                .tag(2)
+                .tag(3)
         }
         .tint(Theme.accent)
     }
